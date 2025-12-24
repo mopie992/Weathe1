@@ -65,7 +65,7 @@ router.get('/', async (req, res) => {
                 appid: openweatherKey,
                 units: 'metric'
               },
-              timeout: 10000
+              timeout: 15000 // Increased timeout for OpenWeather API
             }),
             // 5 day forecast (3-hour intervals, we'll convert to hourly)
             axios.get('https://api.openweathermap.org/data/2.5/forecast', {
@@ -75,7 +75,7 @@ router.get('/', async (req, res) => {
                 appid: openweatherKey,
                 units: 'metric'
               },
-              timeout: 10000
+              timeout: 15000 // Increased timeout for OpenWeather API
             })
           ]);
 
