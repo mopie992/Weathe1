@@ -173,11 +173,23 @@ export default function App() {
         if (hoursFromNow === 0) {
           // Current weather
           weather = hourlyForecasts.current;
-        } else if (hoursFromNow > 0 && hoursFromNow <= 48 && hourlyForecasts.hourly && hourlyForecasts.hourly[hoursFromNow - 1]) {
-          // Hourly forecast (hourly array is 0-indexed, but hour 0 is "current", so hour 1 = index 0)
-          weather = hourlyForecasts.hourly[hoursFromNow - 1];
+        } else if (hoursFromNow > 0 && hourlyForecasts.hourly && hourlyForecasts.hourly.length > 0) {
+          // OpenWeather 5-day forecast gives 3-hour intervals (not true hourly)
+          // Map slider hours to 3-hour interval index
+          // Hour 1-3 = index 0, Hour 4-6 = index 1, etc.
+          const intervalIndex = Math.floor((hoursFromNow - 1) / 3);
+          
+          if (intervalIndex < hourlyForecasts.hourly.length) {
+            weather = hourlyForecasts.hourly[intervalIndex];
+            console.log(`Hour +${hoursFromNow}: Using 3-hour interval index ${intervalIndex}, temp: ${weather.temp}°C`);
+          } else {
+            // If beyond available forecast, use the last available forecast
+            weather = hourlyForecasts.hourly[hourlyForecasts.hourly.length - 1];
+            console.log(`Hour +${hoursFromNow}: Beyond forecast range, using last available (index ${hourlyForecasts.hourly.length - 1}), temp: ${weather.temp}°C`);
+          }
         } else {
-          // Fallback to current if hour is out of range
+          // Fallback to current if no hourly data available
+          console.warn(`No hourly forecast available for hour +${hoursFromNow}, using current`);
           weather = hourlyForecasts.current;
         }
 
