@@ -53,17 +53,19 @@ router.get('/', async (req, res) => {
       let hourlyForecasts = await getCachedWeather(cacheKey);
 
       if (!hourlyForecasts) {
-        // Fetch from OpenWeather One Call API
+        // Fetch from OpenWeather One Call API with timeout
         const url = `https://api.openweathermap.org/data/3.0/onecall`;
-        const response = await axios.get(url, {
-          params: {
-            lat,
-            lon,
-            appid: openweatherKey,
-            units: 'metric',
-            exclude: 'minutely,alerts'
-          }
-        });
+        try {
+          const response = await axios.get(url, {
+            params: {
+              lat,
+              lon,
+              appid: openweatherKey,
+              units: 'metric',
+              exclude: 'minutely,alerts'
+            },
+            timeout: 10000 // 10 second timeout per request
+          });
 
         // Process hourly forecasts (0-48 hours)
         hourlyForecasts = {
@@ -94,8 +96,25 @@ router.get('/', async (req, res) => {
           }));
         }
 
-        // Cache for 1 hour (weather data updates hourly)
-        await setCachedWeather(cacheKey, hourlyForecasts, 3600);
+          // Cache for 1 hour (weather data updates hourly)
+          await setCachedWeather(cacheKey, hourlyForecasts, 3600);
+        } catch (error) {
+          console.error(`Weather API error for ${lat},${lon}:`, error.message);
+          // Use a default/fallback weather object if API fails
+          hourlyForecasts = {
+            current: {
+              temp: 20,
+              feels_like: 20,
+              humidity: 50,
+              wind_speed: 5,
+              wind_deg: 0,
+              weather: { main: 'Clear', description: 'clear sky' },
+              precip: { '1h': 0 },
+              timestamp: Math.floor(Date.now() / 1000)
+            },
+            hourly: []
+          };
+        }
       }
 
       weatherData.push({
