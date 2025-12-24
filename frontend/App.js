@@ -89,20 +89,41 @@ export default function App() {
       setRouteCoordinates(route.coordinates);
 
       // Fetch weather once for all hours (0-48) - this is the only API call
+      // Use Promise.race to timeout after 30 seconds
       console.log('Fetching weather for', route.coordinates.length, 'points...');
-      const weatherHourly = await getWeather(route.coordinates);
-      console.log('Weather data received:', weatherHourly);
       
-      if (!weatherHourly || weatherHourly.length === 0) {
-        throw new Error('No weather data received');
+      const weatherPromise = getWeather(route.coordinates);
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Weather request timed out after 30 seconds')), 30000)
+      );
+
+      try {
+        const weatherHourly = await Promise.race([weatherPromise, timeoutPromise]);
+        console.log('Weather data received:', weatherHourly);
+        
+        if (!weatherHourly || weatherHourly.length === 0) {
+          console.warn('No weather data received, using fallback');
+          // Don't throw - just use empty data so route still shows
+          setWeatherHourlyData([]);
+          setWeatherData([]);
+        } else {
+          setWeatherHourlyData(weatherHourly);
+          // Extract current hour (0) weather for initial display
+          const currentWeather = extractWeatherForHour(weatherHourly, 0);
+          setWeatherData(currentWeather);
+        }
+        setSelectedTime(0);
+      } catch (weatherError) {
+        console.error('Weather fetch error (non-fatal):', weatherError);
+        // Don't fail the whole search - show route without weather
+        setWeatherHourlyData([]);
+        setWeatherData([]);
+        Alert.alert(
+          'Weather Unavailable', 
+          'Route loaded successfully, but weather data could not be fetched. The route is still visible on the map.',
+          [{ text: 'OK' }]
+        );
       }
-
-      setWeatherHourlyData(weatherHourly);
-
-      // Extract current hour (0) weather for initial display
-      const currentWeather = extractWeatherForHour(weatherHourly, 0);
-      setWeatherData(currentWeather);
-      setSelectedTime(0);
     } catch (error) {
       console.error('Route search error:', error);
       const errorMessage = error.response?.data?.error || error.message || 'Failed to fetch route or weather data';
