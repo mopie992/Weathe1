@@ -3,7 +3,7 @@ import axios from 'axios';
 // API URL - automatically switches between local and production
 // Set EXPO_PUBLIC_API_URL environment variable for production
 const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || 
-  (__DEV__ ? 'http://172.16.0.45:3000/api' : 'https://your-production-api.com/api');
+  (__DEV__ ? 'http://172.16.0.45:3000/api' : 'https://weathe1-production.up.railway.app/api');
 
 /**
  * Fetch driving route from backend
