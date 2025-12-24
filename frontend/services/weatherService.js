@@ -2,8 +2,11 @@ import axios from 'axios';
 
 // API URL - automatically switches between local and production
 // Set EXPO_PUBLIC_API_URL environment variable for production
+// For web, always use Railway URL (local IP won't work from browser)
 const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || 
-  (__DEV__ ? 'http://172.16.0.45:3000/api' : 'https://weathe1-production.up.railway.app/api');
+  (typeof window !== 'undefined' 
+    ? 'https://weathe1-production.up.railway.app/api'  // Web always uses Railway
+    : (__DEV__ ? 'http://172.16.0.45:3000/api' : 'https://weathe1-production.up.railway.app/api'));
 
 /**
  * Fetch hourly weather forecasts for coordinates along a route (0-48 hours)
@@ -17,7 +20,7 @@ export async function getWeather(coordinates) {
       params: {
         coordinates: JSON.stringify(coordinates)
       },
-      timeout: 30000 // 30 second timeout
+      timeout: 60000 // 60 second timeout (weather API can be slow with many points)
     });
 
     return response.data;
