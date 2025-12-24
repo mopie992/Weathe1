@@ -254,6 +254,8 @@ const MapViewWeb = ({ currentLocation, routeCoordinates, weatherData }) => {
           el.style.justifyContent = 'center';
           el.style.fontSize = '16px';
           el.style.cursor = 'pointer';
+          el.style.zIndex = '1000'; // Ensure markers are above route line
+          el.style.boxShadow = '0 2px 4px rgba(0,0,0,0.3)'; // Make markers more visible
           el.innerHTML = `
             <div>${icon}</div>
             <div style="font-size: 10px; font-weight: bold; margin-top: 2px;">${Math.round(weather.temp)}°</div>
