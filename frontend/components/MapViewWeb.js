@@ -188,18 +188,57 @@ const MapViewWeb = ({ currentLocation, routeCoordinates, weatherData }) => {
 
   // Update weather markers
   useEffect(() => {
-    if (!map.current || !weatherData || weatherData.length === 0 || !mapboxgl) return;
+    if (!map.current || !weatherData || weatherData.length === 0 || !mapboxgl) {
+      console.log('Weather markers skipped:', {
+        hasMap: !!map.current,
+        hasWeatherData: !!weatherData,
+        weatherDataLength: weatherData?.length || 0,
+        hasMapboxgl: !!mapboxgl
+      });
+      return;
+    }
 
     try {
+      console.log('Adding weather markers for', weatherData.length, 'points');
+      
       // Remove existing markers
       markersRef.current.forEach(marker => marker.remove());
       markersRef.current = [];
 
       // Add weather markers
       weatherData.forEach((item, index) => {
+        if (!item || !item.weather) {
+          console.warn('Invalid weather item at index', index, item);
+          return;
+        }
+
         const weather = item.weather;
         const color = getWeatherColor(weather);
         const icon = getWeatherIcon(weather.condition);
+
+        // Get coordinates - handle different formats
+        let lon, lat;
+        if (item.lon !== undefined && item.lat !== undefined) {
+          lon = typeof item.lon === 'number' ? item.lon : parseFloat(item.lon);
+          lat = typeof item.lat === 'number' ? item.lat : parseFloat(item.lat);
+        } else {
+          console.warn('Missing coordinates in weather item:', item);
+          return;
+        }
+
+        // Fix coordinates that are 10x too large
+        if (Math.abs(lat) > 90) {
+          lat = lat / 10;
+        }
+        if (Math.abs(lon) > 180) {
+          lon = lon / 10;
+        }
+
+        // Validate coordinates
+        if (isNaN(lon) || isNaN(lat) || lon < -180 || lon > 180 || lat < -90 || lat > 90) {
+          console.warn('Invalid coordinates for weather marker:', { lat, lon, original: item });
+          return;
+        }
 
         if (typeof document !== 'undefined') {
           const el = document.createElement('div');
@@ -214,18 +253,21 @@ const MapViewWeb = ({ currentLocation, routeCoordinates, weatherData }) => {
           el.style.alignItems = 'center';
           el.style.justifyContent = 'center';
           el.style.fontSize = '16px';
+          el.style.cursor = 'pointer';
           el.innerHTML = `
             <div>${icon}</div>
             <div style="font-size: 10px; font-weight: bold; margin-top: 2px;">${Math.round(weather.temp)}°</div>
           `;
 
           const marker = new mapboxgl.Marker(el)
-            .setLngLat([item.lon, item.lat])
+            .setLngLat([lon, lat])
             .addTo(map.current);
 
           markersRef.current.push(marker);
         }
       });
+
+      console.log('Successfully added', markersRef.current.length, 'weather markers');
     } catch (error) {
       console.error('Error adding weather markers:', error);
     }
