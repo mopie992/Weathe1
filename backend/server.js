@@ -16,6 +16,11 @@ app.use(express.json());
 app.use('/api/directions', directionsRoutes);
 app.use('/api/weather', weatherRoutes);
 
+// Root route
+app.get('/', (req, res) => {
+  res.json({ status: 'ok', message: 'WeatherRoute API is running', version: '1.0.0' });
+});
+
 // Health check
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', message: 'WeatherRoute API is running' });

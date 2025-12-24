@@ -1,11 +1,18 @@
-const redis = require('redis');
+// Redis is optional - only require if available
+let redis = null;
+try {
+  redis = require('redis');
+} catch (error) {
+  // Redis not installed - that's fine, caching is optional
+  console.log('Redis module not available - continuing without cache');
+}
 
 let redisClient = null;
 let redisAvailable = false;
 
 // Initialize Redis client if REDIS_URL is provided
 // But make it optional - app works fine without Redis
-if (process.env.REDIS_URL) {
+if (redis && process.env.REDIS_URL) {
   try {
     redisClient = redis.createClient({
       url: process.env.REDIS_URL
