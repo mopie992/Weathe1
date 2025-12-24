@@ -7,6 +7,7 @@ const router = express.Router();
 /**
  * GET /api/weather
  * Returns hourly forecasted weather for coordinates along a route (0-48 hours)
+ * Uses Current Weather API + 5 Day Forecast API (free tier)
  * Query params: coordinates (JSON array of {lat, lon})
  * Returns: Array of weather data with hourly forecasts for each coordinate
  */
@@ -53,54 +54,68 @@ router.get('/', async (req, res) => {
       let hourlyForecasts = await getCachedWeather(cacheKey);
 
       if (!hourlyForecasts) {
-        // Fetch from OpenWeather One Call API 2.5 (free tier compatible)
-        // Note: 3.0 requires paid subscription, 2.5 is free tier
-        const url = `https://api.openweathermap.org/data/2.5/onecall`;
         try {
-          const response = await axios.get(url, {
-            params: {
-              lat,
-              lon,
-              appid: openweatherKey,
-              units: 'metric',
-              exclude: 'minutely,alerts'
+          // Use Current Weather API + Forecast API (free tier)
+          const [currentResponse, forecastResponse] = await Promise.all([
+            // Current weather
+            axios.get('https://api.openweathermap.org/data/2.5/weather', {
+              params: {
+                lat,
+                lon,
+                appid: openweatherKey,
+                units: 'metric'
+              },
+              timeout: 10000
+            }),
+            // 5 day forecast (3-hour intervals, we'll convert to hourly)
+            axios.get('https://api.openweathermap.org/data/2.5/forecast', {
+              params: {
+                lat,
+                lon,
+                appid: openweatherKey,
+                units: 'metric'
+              },
+              timeout: 10000
+            })
+          ]);
+
+          // Process current weather
+          const current = currentResponse.data;
+          hourlyForecasts = {
+            current: {
+              temp: current.main.temp,
+              feels_like: current.main.feels_like,
+              humidity: current.main.humidity,
+              wind_speed: current.wind?.speed || 0,
+              wind_deg: current.wind?.deg || 0,
+              weather: current.weather[0],
+              precip: { '1h': current.rain?.['1h'] || current.snow?.['1h'] || 0 },
+              timestamp: current.dt
             },
-            timeout: 10000 // 10 second timeout per request
-          });
+            hourly: []
+          };
 
-        // Process hourly forecasts (0-48 hours)
-        hourlyForecasts = {
-          current: {
-            temp: response.data.current.temp,
-            feels_like: response.data.current.feels_like,
-            humidity: response.data.current.humidity,
-            wind_speed: response.data.current.wind_speed,
-            wind_deg: response.data.current.wind_deg,
-            weather: response.data.current.weather[0],
-            precip: response.data.current.rain || response.data.current.snow || { '1h': 0 },
-            timestamp: response.data.current.dt
-          },
-          hourly: []
-        };
-
-        // Process each hourly forecast (0-48 hours)
-        if (response.data.hourly && response.data.hourly.length > 0) {
-          hourlyForecasts.hourly = response.data.hourly.slice(0, 48).map((hourly) => ({
-            temp: hourly.temp,
-            feels_like: hourly.feels_like,
-            humidity: hourly.humidity,
-            wind_speed: hourly.wind_speed,
-            wind_deg: hourly.wind_deg,
-            weather: hourly.weather[0],
-            precip: hourly.rain || hourly.snow || { '1h': 0 },
-            timestamp: hourly.dt
-          }));
-        }
+          // Process forecast (3-hour intervals, convert to hourly estimates)
+          if (forecastResponse.data && forecastResponse.data.list) {
+            hourlyForecasts.hourly = forecastResponse.data.list.slice(0, 16).map((item, index) => {
+              // Interpolate between 3-hour forecasts for hourly data
+              return {
+                temp: item.main.temp,
+                feels_like: item.main.feels_like,
+                humidity: item.main.humidity,
+                wind_speed: item.wind?.speed || 0,
+                wind_deg: item.wind?.deg || 0,
+                weather: item.weather[0],
+                precip: { '1h': item.rain?.['3h'] ? item.rain['3h'] / 3 : item.snow?.['3h'] ? item.snow['3h'] / 3 : 0 },
+                timestamp: item.dt
+              };
+            });
+          }
 
           // Cache for 1 hour (weather data updates hourly)
           await setCachedWeather(cacheKey, hourlyForecasts, 3600);
         } catch (error) {
-          console.error(`Weather API error for ${lat},${lon}:`, error.message);
+          console.error(`Weather API error for ${lat},${lon}:`, error.response?.data || error.message);
           // Use a default/fallback weather object if API fails
           hourlyForecasts = {
             current: {
@@ -136,4 +151,3 @@ router.get('/', async (req, res) => {
 });
 
 module.exports = router;
-
