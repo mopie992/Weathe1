@@ -57,28 +57,49 @@ router.get('/', async (req, res) => {
         if (!hourlyForecasts) {
           try {
             // Use Current Weather API + Forecast API (free tier)
-            const [currentResponse, forecastResponse] = await Promise.all([
-              // Current weather
-              axios.get('https://api.openweathermap.org/data/2.5/weather', {
-                params: {
-                  lat,
-                  lon,
-                  appid: openweatherKey,
-                  units: 'metric'
-                },
-                timeout: 15000 // Increased timeout for OpenWeather API
-              }),
-              // 5 day forecast (3-hour intervals, we'll convert to hourly)
-              axios.get('https://api.openweathermap.org/data/2.5/forecast', {
-                params: {
-                  lat,
-                  lon,
-                  appid: openweatherKey,
-                  units: 'metric'
-                },
-                timeout: 15000 // Increased timeout for OpenWeather API
-              })
-            ]);
+            let currentResponse, forecastResponse;
+            
+            try {
+              [currentResponse, forecastResponse] = await Promise.all([
+                // Current weather
+                axios.get('https://api.openweathermap.org/data/2.5/weather', {
+                  params: {
+                    lat,
+                    lon,
+                    appid: openweatherKey,
+                    units: 'metric'
+                  },
+                  timeout: 15000 // Increased timeout for OpenWeather API
+                }),
+                // 5 day forecast (3-hour intervals, we'll convert to hourly)
+                axios.get('https://api.openweathermap.org/data/2.5/forecast', {
+                  params: {
+                    lat,
+                    lon,
+                    appid: openweatherKey,
+                    units: 'metric'
+                  },
+                  timeout: 15000 // Increased timeout for OpenWeather API
+                })
+              ]);
+            } catch (apiError) {
+              console.error(`API call error for ${lat},${lon}:`, {
+                message: apiError.message,
+                code: apiError.code,
+                status: apiError.response?.status,
+                statusText: apiError.response?.statusText,
+                data: apiError.response?.data
+              });
+              throw apiError;
+            }
+            
+            // Log successful API calls
+            console.log(`API calls successful for ${lat},${lon}:`, {
+              currentStatus: currentResponse.status,
+              forecastStatus: forecastResponse.status,
+              forecastHasData: !!forecastResponse.data,
+              forecastListLength: forecastResponse.data?.list?.length || 0
+            });
 
             // Process current weather
             const current = currentResponse.data;
