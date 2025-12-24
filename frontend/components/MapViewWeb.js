@@ -90,8 +90,21 @@ const MapViewWeb = ({ currentLocation, routeCoordinates, weatherData }) => {
         map.current.removeSource('route');
       }
 
-      // Add route line
-      const coordinates = routeCoordinates.map(coord => [coord.lon, coord.lat]);
+      // Add route line - validate coordinates
+      const coordinates = routeCoordinates
+        .map(coord => {
+          // Ensure we have valid lon/lat
+          const lon = typeof coord.lon === 'number' ? coord.lon : parseFloat(coord.lon);
+          const lat = typeof coord.lat === 'number' ? coord.lat : parseFloat(coord.lat);
+          
+          // Validate range
+          if (isNaN(lon) || isNaN(lat) || lon < -180 || lon > 180 || lat < -90 || lat > 90) {
+            console.warn('Invalid coordinate:', coord);
+            return null;
+          }
+          return [lon, lat];
+        })
+        .filter(coord => coord !== null); // Remove invalid coordinates
       
       map.current.addSource('route', {
         type: 'geojson',
@@ -121,13 +134,24 @@ const MapViewWeb = ({ currentLocation, routeCoordinates, weatherData }) => {
       // Fit map to route bounds
       if (coordinates.length > 0 && mapboxgl) {
         try {
-          const bounds = coordinates.reduce((bounds, coord) => {
-            return bounds.extend(coord);
-          }, new mapboxgl.LngLatBounds(coordinates[0], coordinates[0]));
-
-          map.current.fitBounds(bounds, {
-            padding: 50
+          // Validate coordinates first - filter out invalid ones
+          const validCoords = coordinates.filter(coord => {
+            const [lon, lat] = coord;
+            return (
+              typeof lon === 'number' && !isNaN(lon) && lon >= -180 && lon <= 180 &&
+              typeof lat === 'number' && !isNaN(lat) && lat >= -90 && lat <= 90
+            );
           });
+
+          if (validCoords.length > 0) {
+            const bounds = validCoords.reduce((bounds, coord) => {
+              return bounds.extend(coord);
+            }, new mapboxgl.LngLatBounds(validCoords[0], validCoords[0]));
+
+            map.current.fitBounds(bounds, {
+              padding: 50
+            });
+          }
         } catch (error) {
           console.error('Error fitting bounds:', error);
         }
