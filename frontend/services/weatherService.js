@@ -16,13 +16,17 @@ export async function getWeather(coordinates) {
     const response = await axios.get(`${API_BASE_URL}/weather`, {
       params: {
         coordinates: JSON.stringify(coordinates)
-      }
+      },
+      timeout: 30000 // 30 second timeout
     });
 
     return response.data;
   } catch (error) {
     console.error('Weather service error:', error);
-    throw new Error('Failed to fetch weather data');
+    if (error.code === 'ECONNABORTED') {
+      throw new Error('Weather request timed out');
+    }
+    throw new Error(error.response?.data?.error || 'Failed to fetch weather data');
   }
 }
 
