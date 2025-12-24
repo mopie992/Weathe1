@@ -53,8 +53,9 @@ router.get('/', async (req, res) => {
       let hourlyForecasts = await getCachedWeather(cacheKey);
 
       if (!hourlyForecasts) {
-        // Fetch from OpenWeather One Call API with timeout
-        const url = `https://api.openweathermap.org/data/3.0/onecall`;
+        // Fetch from OpenWeather One Call API 2.5 (free tier compatible)
+        // Note: 3.0 requires paid subscription, 2.5 is free tier
+        const url = `https://api.openweathermap.org/data/2.5/onecall`;
         try {
           const response = await axios.get(url, {
             params: {
