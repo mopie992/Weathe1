@@ -93,13 +93,38 @@ const MapViewWeb = ({ currentLocation, routeCoordinates, weatherData }) => {
       // Add route line - validate coordinates
       const coordinates = routeCoordinates
         .map(coord => {
-          // Ensure we have valid lon/lat
-          const lon = typeof coord.lon === 'number' ? coord.lon : parseFloat(coord.lon);
-          const lat = typeof coord.lat === 'number' ? coord.lat : parseFloat(coord.lat);
+          // Handle different coordinate formats (lat/lon, Lat/Lon, latitude/longitude)
+          let lon, lat;
+          
+          if (coord.lon !== undefined && coord.lat !== undefined) {
+            lon = typeof coord.lon === 'number' ? coord.lon : parseFloat(coord.lon);
+            lat = typeof coord.lat === 'number' ? coord.lat : parseFloat(coord.lat);
+          } else if (coord.Lon !== undefined && coord.Lat !== undefined) {
+            lon = typeof coord.Lon === 'number' ? coord.Lon : parseFloat(coord.Lon);
+            lat = typeof coord.Lat === 'number' ? coord.Lat : parseFloat(coord.Lat);
+          } else if (coord.longitude !== undefined && coord.latitude !== undefined) {
+            lon = typeof coord.longitude === 'number' ? coord.longitude : parseFloat(coord.longitude);
+            lat = typeof coord.latitude === 'number' ? coord.latitude : parseFloat(coord.latitude);
+          } else if (Array.isArray(coord) && coord.length >= 2) {
+            // Handle [lat, lon] or [lon, lat] format
+            lat = typeof coord[0] === 'number' ? coord[0] : parseFloat(coord[0]);
+            lon = typeof coord[1] === 'number' ? coord[1] : parseFloat(coord[1]);
+          } else {
+            console.warn('Unknown coordinate format:', coord);
+            return null;
+          }
+          
+          // Fix coordinates that are 10x too large (common polyline decoding issue)
+          if (Math.abs(lat) > 90) {
+            lat = lat / 10;
+          }
+          if (Math.abs(lon) > 180) {
+            lon = lon / 10;
+          }
           
           // Validate range
           if (isNaN(lon) || isNaN(lat) || lon < -180 || lon > 180 || lat < -90 || lat > 90) {
-            console.warn('Invalid coordinate:', coord);
+            console.warn('Invalid coordinate after fix:', { lat, lon, original: coord });
             return null;
           }
           return [lon, lat];
