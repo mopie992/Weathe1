@@ -100,6 +100,7 @@ export default function App() {
       try {
         const weatherHourly = await Promise.race([weatherPromise, timeoutPromise]);
         console.log('Weather data received:', weatherHourly);
+        console.log('Weather data length:', weatherHourly?.length || 0);
         
         if (!weatherHourly || weatherHourly.length === 0) {
           console.warn('No weather data received, using fallback');
@@ -110,6 +111,8 @@ export default function App() {
           setWeatherHourlyData(weatherHourly);
           // Extract current hour (0) weather for initial display
           const currentWeather = extractWeatherForHour(weatherHourly, 0);
+          console.log('Extracted current weather:', currentWeather);
+          console.log('Current weather length:', currentWeather?.length || 0);
           setWeatherData(currentWeather);
         }
         setSelectedTime(0);
