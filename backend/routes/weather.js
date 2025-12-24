@@ -96,22 +96,31 @@ router.get('/', async (req, res) => {
               hourly: []
             };
 
-            // Process forecast (3-hour intervals, convert to hourly estimates)
-            if (forecastResponse.data && forecastResponse.data.list) {
-              hourlyForecasts.hourly = forecastResponse.data.list.slice(0, 16).map((item, index) => {
-                // Interpolate between 3-hour forecasts for hourly data
-                return {
-                  temp: item.main.temp,
-                  feels_like: item.main.feels_like,
-                  humidity: item.main.humidity,
-                  wind_speed: item.wind?.speed || 0,
-                  wind_deg: item.wind?.deg || 0,
-                  weather: item.weather[0],
-                  precip: { '1h': item.rain?.['3h'] ? item.rain['3h'] / 3 : item.snow?.['3h'] ? item.snow['3h'] / 3 : 0 },
-                  timestamp: item.dt
-                };
-              });
-            }
+          // Process forecast (3-hour intervals, convert to hourly estimates)
+          if (forecastResponse.data && forecastResponse.data.list) {
+            console.log(`Forecast data received for ${lat},${lon}: ${forecastResponse.data.list.length} intervals`);
+            hourlyForecasts.hourly = forecastResponse.data.list.slice(0, 16).map((item, index) => {
+              // Interpolate between 3-hour forecasts for hourly data
+              return {
+                temp: item.main.temp,
+                feels_like: item.main.feels_like,
+                humidity: item.main.humidity,
+                wind_speed: item.wind?.speed || 0,
+                wind_deg: item.wind?.deg || 0,
+                weather: item.weather[0],
+                precip: { '1h': item.rain?.['3h'] ? item.rain['3h'] / 3 : item.snow?.['3h'] ? item.snow['3h'] / 3 : 0 },
+                timestamp: item.dt
+              };
+            });
+            console.log(`Processed ${hourlyForecasts.hourly.length} hourly forecasts for ${lat},${lon}`);
+          } else {
+            console.warn(`No forecast data in response for ${lat},${lon}:`, {
+              hasData: !!forecastResponse.data,
+              hasList: !!(forecastResponse.data && forecastResponse.data.list),
+              responseKeys: forecastResponse.data ? Object.keys(forecastResponse.data) : 'no data'
+            });
+            hourlyForecasts.hourly = []; // Explicitly set empty array
+          }
 
             // Cache for 1 hour (weather data updates hourly)
             await setCachedWeather(cacheKey, hourlyForecasts, 3600);
