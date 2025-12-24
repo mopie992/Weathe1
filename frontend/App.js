@@ -167,6 +167,17 @@ export default function App() {
           console.warn('Missing hourlyForecasts for point:', lat, lon);
           return null;
         }
+        
+        // Debug: Log structure on first point only
+        if (hourlyData.indexOf(pointData) === 0 && hoursFromNow > 0) {
+          console.log('Debug hourlyForecasts structure:', {
+            hasCurrent: !!hourlyForecasts.current,
+            hasHourly: !!hourlyForecasts.hourly,
+            hourlyLength: hourlyForecasts.hourly?.length || 0,
+            hourlyType: Array.isArray(hourlyForecasts.hourly),
+            hourlySample: hourlyForecasts.hourly?.[0]
+          });
+        }
 
         let weather;
 
