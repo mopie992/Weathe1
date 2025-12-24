@@ -1,0 +1,16 @@
+node_modules/
+.expo/
+.expo-shared/
+*.log
+.DS_Store
+.env
+dist/
+npm-debug.*
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+*.orig.*
+web-build/
+
