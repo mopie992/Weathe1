@@ -1,0 +1,14 @@
+services:
+  - type: web
+    name: weatherroute-backend
+    env: node
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: MAPBOX_TOKEN
+        sync: false
+      - key: OPENWEATHER_KEY
+        sync: false
+      - key: PORT
+        value: 3000
+
