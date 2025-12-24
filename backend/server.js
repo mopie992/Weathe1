@@ -26,7 +26,24 @@ app.get('/health', (req, res) => {
   res.json({ status: 'ok', message: 'WeatherRoute API is running' });
 });
 
+// Error handling for server startup
+process.on('uncaughtException', (error) => {
+  console.error('Uncaught Exception:', error);
+  // Don't exit - let Railway handle it
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+  // Don't exit - let Railway handle it
+});
+
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`WeatherRoute backend server running on port ${PORT}`);
+  console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
+  console.log(`Mapbox token: ${process.env.MAPBOX_TOKEN ? 'Set' : 'Missing'}`);
+  console.log(`OpenWeather key: ${process.env.OPENWEATHER_KEY ? 'Set' : 'Missing'}`);
+}).on('error', (error) => {
+  console.error('Server error:', error);
+  process.exit(1);
 });
 
