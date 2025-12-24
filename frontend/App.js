@@ -88,9 +88,10 @@ export default function App() {
       const route = await getDirections(origin, dest);
       setRouteCoordinates(route.coordinates);
 
-      // Fetch weather once for all hours (0-48) - this is the only API call
-      // Use Promise.race to timeout after 30 seconds
-      console.log('Fetching weather for', route.coordinates.length, 'points...');
+      // IMPORTANT: Fetch weather ONCE for all hours (0-48) - this is the ONLY API call
+      // The slider will later switch between this cached data without making new API calls
+      // Use Promise.race to timeout after 60 seconds
+      console.log('Fetching weather for', route.coordinates.length, 'points (ONE-TIME API call)...');
       
       const weatherPromise = getWeather(route.coordinates);
       const timeoutPromise = new Promise((_, reject) => 
@@ -210,10 +211,15 @@ export default function App() {
   const handleTimeChange = (hours) => {
     setSelectedTime(hours);
     
-    // No API call - just switch between cached hourly data
+    // IMPORTANT: No API call here - just switch between cached hourly data
+    // All weather data was fetched once when the route was loaded
+    // This prevents costly API calls on every slider movement
     if (weatherHourlyData.length > 0) {
       const weatherForHour = extractWeatherForHour(weatherHourlyData, hours);
       setWeatherData(weatherForHour);
+      console.log(`Switching to hour +${hours} (no API call - using cached data)`);
+    } else {
+      console.warn('No cached weather data available for slider');
     }
   };
 
