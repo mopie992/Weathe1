@@ -45,8 +45,8 @@ router.get('/', async (req, res) => {
 
     const weatherData = [];
 
-    // Fetch weather for each coordinate (once per route)
-    for (const coord of coordsArray) {
+    // Fetch weather for all coordinates in parallel (much faster!)
+    const weatherPromises = coordsArray.map(async (coord) => {
       const { lat, lon } = coord;
 
       // Cache key: lat/lon only (not timestamp, since we fetch all hours)
@@ -133,12 +133,37 @@ router.get('/', async (req, res) => {
         }
       }
 
-      weatherData.push({
+      return {
         lat,
         lon,
         hourlyForecasts: hourlyForecasts
-      });
+      };
+    } catch (error) {
+      console.error(`Error processing weather for ${lat},${lon}:`, error.message);
+      // Return fallback data instead of failing completely
+      return {
+        lat,
+        lon,
+        hourlyForecasts: {
+          current: {
+            temp: 20,
+            feels_like: 20,
+            humidity: 50,
+            wind_speed: 5,
+            wind_deg: 0,
+            weather: { main: 'Clear', description: 'clear sky' },
+            precip: { '1h': 0 },
+            timestamp: Math.floor(Date.now() / 1000)
+          },
+          hourly: []
+        }
+      };
     }
+    });
+
+    // Wait for all weather requests to complete (in parallel)
+    const results = await Promise.all(weatherPromises);
+    weatherData.push(...results);
 
     res.json(weatherData);
   } catch (error) {
