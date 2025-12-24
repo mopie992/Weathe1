@@ -5,6 +5,51 @@ const { getCachedWeather, setCachedWeather } = require('../utils/cache');
 const router = express.Router();
 
 /**
+ * Test endpoint to check forecast API directly
+ * GET /api/weather/test-forecast?lat=40.7128&lon=-74.0060
+ */
+router.get('/test-forecast', async (req, res) => {
+  try {
+    const { lat = 40.7128, lon = -74.0060 } = req.query;
+    const openweatherKey = process.env.OPENWEATHER_KEY;
+    
+    if (!openweatherKey) {
+      return res.status(500).json({ error: 'OpenWeather API key not configured' });
+    }
+
+    console.log(`Testing forecast API for ${lat},${lon}`);
+    const forecastResponse = await axios.get('https://api.openweathermap.org/data/2.5/forecast', {
+      params: {
+        lat,
+        lon,
+        appid: openweatherKey,
+        units: 'metric'
+      },
+      timeout: 15000
+    });
+
+    res.json({
+      status: forecastResponse.status,
+      hasData: !!forecastResponse.data,
+      hasList: !!(forecastResponse.data && forecastResponse.data.list),
+      listLength: forecastResponse.data?.list?.length || 0,
+      listSample: forecastResponse.data?.list?.[0] || null,
+      responseKeys: forecastResponse.data ? Object.keys(forecastResponse.data) : [],
+      fullResponse: forecastResponse.data
+    });
+  } catch (error) {
+    console.error('Forecast API test error:', error);
+    res.status(500).json({
+      error: error.message,
+      code: error.code,
+      status: error.response?.status,
+      statusText: error.response?.statusText,
+      data: error.response?.data
+    });
+  }
+});
+
+/**
  * GET /api/weather
  * Returns hourly forecasted weather for coordinates along a route (0-48 hours)
  * Uses Current Weather API + 5 Day Forecast API (free tier)
