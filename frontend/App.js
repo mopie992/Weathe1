@@ -173,23 +173,30 @@ export default function App() {
         if (hoursFromNow === 0) {
           // Current weather
           weather = hourlyForecasts.current;
-        } else if (hoursFromNow > 0 && hourlyForecasts.hourly && hourlyForecasts.hourly.length > 0) {
+        } else if (hoursFromNow > 0) {
           // OpenWeather 5-day forecast gives 3-hour intervals (not true hourly)
           // Map slider hours to 3-hour interval index
           // Hour 1-3 = index 0, Hour 4-6 = index 1, etc.
+          // intervalIndex = 0 for hours 1-3, 1 for hours 4-6, 2 for hours 7-9, etc.
           const intervalIndex = Math.floor((hoursFromNow - 1) / 3);
           
-          if (intervalIndex < hourlyForecasts.hourly.length) {
-            weather = hourlyForecasts.hourly[intervalIndex];
-            console.log(`Hour +${hoursFromNow}: Using 3-hour interval index ${intervalIndex}, temp: ${weather.temp}°C`);
+          // Check if hourly array exists and has data
+          if (hourlyForecasts.hourly && Array.isArray(hourlyForecasts.hourly) && hourlyForecasts.hourly.length > 0) {
+            if (intervalIndex < hourlyForecasts.hourly.length) {
+              weather = hourlyForecasts.hourly[intervalIndex];
+              console.log(`Hour +${hoursFromNow}: Using 3-hour interval index ${intervalIndex}/${hourlyForecasts.hourly.length - 1}, temp: ${weather.temp}°C`);
+            } else {
+              // If beyond available forecast, use the last available forecast
+              weather = hourlyForecasts.hourly[hourlyForecasts.hourly.length - 1];
+              console.log(`Hour +${hoursFromNow}: Beyond forecast range (${hourlyForecasts.hourly.length} intervals), using last available, temp: ${weather.temp}°C`);
+            }
           } else {
-            // If beyond available forecast, use the last available forecast
-            weather = hourlyForecasts.hourly[hourlyForecasts.hourly.length - 1];
-            console.log(`Hour +${hoursFromNow}: Beyond forecast range, using last available (index ${hourlyForecasts.hourly.length - 1}), temp: ${weather.temp}°C`);
+            // No hourly data available - fallback to current
+            console.warn(`No hourly forecast array available for hour +${hoursFromNow}, using current. hourlyForecasts:`, hourlyForecasts);
+            weather = hourlyForecasts.current;
           }
         } else {
-          // Fallback to current if no hourly data available
-          console.warn(`No hourly forecast available for hour +${hoursFromNow}, using current`);
+          // Fallback to current for any other case
           weather = hourlyForecasts.current;
         }
 
