@@ -235,8 +235,14 @@ router.get('/', async (req, res) => {
               hourlySample: hourlyForecasts.hourly?.[0] || 'none'
             });
 
-            // Cache for 1 hour (weather data updates hourly)
-            await setCachedWeather(cacheKey, hourlyForecasts, 3600);
+            // CRITICAL: Only cache if we have hourly data
+            const hourlyCount = hourlyForecasts.hourly?.length || 0;
+            if (hourlyCount > 0) {
+              await setCachedWeather(cacheKey, hourlyForecasts, 3600);
+              console.log(`✅ Cached ${hourlyCount} hourly forecasts for ${lat},${lon}`);
+            } else {
+              console.error(`❌ NOT caching - hourly array is empty for ${lat},${lon}`);
+            }
           } catch (error) {
             console.error(`Weather API error for ${lat},${lon}:`, error.response?.data || error.message);
             // Use a default/fallback weather object if API fails
@@ -256,6 +262,14 @@ router.get('/', async (req, res) => {
           }
         }
 
+        // CRITICAL: Log what we're returning
+        const finalHourlyLength = hourlyForecasts.hourly?.length || 0;
+        console.log(`📤 Returning for ${lat},${lon}: hourlyLength=${finalHourlyLength}`);
+        
+        if (finalHourlyLength === 0) {
+          console.error(`🚨 ERROR: Returning empty hourly array for ${lat},${lon}!`);
+        }
+        
         return {
           lat,
           lon,
