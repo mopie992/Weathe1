@@ -100,9 +100,17 @@ router.get('/', async (req, res) => {
       let hourlyForecasts = await getCachedWeather(cacheKey);
 
       // Don't use cache if hourly array is empty (means previous fetch failed)
-      if (hourlyForecasts && (!hourlyForecasts.hourly || hourlyForecasts.hourly.length === 0)) {
-        console.log(`Cache has empty hourly array for ${lat},${lon}, fetching fresh data`);
-        hourlyForecasts = null; // Force fresh fetch
+      if (hourlyForecasts) {
+        const hourlyLength = hourlyForecasts.hourly?.length || 0;
+        console.log(`🔍 Cache check for ${lat},${lon}: hourlyLength=${hourlyLength}`);
+        if (hourlyLength === 0) {
+          console.log(`⚠️ Cache has empty hourly array for ${lat},${lon}, fetching fresh data`);
+          hourlyForecasts = null; // Force fresh fetch
+        } else {
+          console.log(`✅ Using cached data for ${lat},${lon} with ${hourlyLength} hourly forecasts`);
+        }
+      } else {
+        console.log(`📥 No cache found for ${lat},${lon}, will fetch fresh data`);
       }
 
       if (!hourlyForecasts) {
