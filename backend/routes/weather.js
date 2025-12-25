@@ -95,11 +95,17 @@ router.get('/', async (req, res) => {
       try {
         const { lat, lon } = coord;
 
-        // Cache key: lat/lon only (not timestamp, since we fetch all hours)
-        const cacheKey = `weather:${lat}:${lon}`;
-        let hourlyForecasts = await getCachedWeather(cacheKey);
+      // Cache key: lat/lon only (not timestamp, since we fetch all hours)
+      const cacheKey = `weather:${lat}:${lon}`;
+      let hourlyForecasts = await getCachedWeather(cacheKey);
 
-        if (!hourlyForecasts) {
+      // Don't use cache if hourly array is empty (means previous fetch failed)
+      if (hourlyForecasts && (!hourlyForecasts.hourly || hourlyForecasts.hourly.length === 0)) {
+        console.log(`Cache has empty hourly array for ${lat},${lon}, fetching fresh data`);
+        hourlyForecasts = null; // Force fresh fetch
+      }
+
+      if (!hourlyForecasts) {
           try {
             // Use Current Weather API + Forecast API (free tier)
             let currentResponse, forecastResponse;
