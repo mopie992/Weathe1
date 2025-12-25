@@ -349,6 +349,41 @@ export default function App() {
     }
   };
 
+  const handleDepartureTimeChange = (offsetMinutes) => {
+    setDepartureTimeOffset(offsetMinutes);
+    updateWeatherForDepartureTime(offsetMinutes, selectedTime);
+  };
+
+  const handleTimeChange = (hours) => {
+    setSelectedTime(hours);
+    updateWeatherForDepartureTime(departureTimeOffset, hours);
+  };
+
+  const updateWeatherForDepartureTime = (departureOffsetMinutes, previewHoursOffset = 0) => {
+    // IMPORTANT: No API call here - just switch between cached hourly data
+    if (weatherHourlyData.length === 0 || !routeDuration) {
+      console.warn('No cached weather data or route duration available');
+      return;
+    }
+
+    // Calculate estimated arrival times at each point
+    const arrivalTimes = calculateEstimatedArrivalTimes(departureOffsetMinutes, routeDuration);
+    
+    // If preview offset is set (from slider), adjust arrival times
+    if (previewHoursOffset !== 0) {
+      arrivalTimes.forEach(arrival => {
+        arrival.hoursFromNow += previewHoursOffset;
+        arrival.arrivalTime = new Date(arrival.arrivalTime.getTime() + previewHoursOffset * 60 * 60 * 1000);
+      });
+    }
+
+    // Extract weather for estimated arrival times
+    const weatherForTimes = extractWeatherForEstimatedTimes(weatherHourlyData, arrivalTimes);
+    setWeatherData(weatherForTimes);
+    
+    console.log(`Updated weather for departure +${departureOffsetMinutes}min, preview +${previewHoursOffset}h`);
+  };
+
   // Update weather when departure time, route, or preview slider changes
   useEffect(() => {
     if (weatherHourlyData.length > 0 && routeDuration && routeCoordinates.length > 0) {
