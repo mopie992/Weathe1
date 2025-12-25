@@ -7,6 +7,7 @@ const MapViewComponent = Platform.OS === 'web'
   ? require('./components/MapViewWeb').default
   : require('./components/MapViewPlaceholder').default;
 import TimelineSlider from './components/TimelineSlider';
+import DepartureTimeSelector from './components/DepartureTimeSelector';
 import { getDirections } from './services/directionsService';
 import { getWeather } from './services/weatherService';
 import * as Location from 'expo-location';
@@ -15,9 +16,12 @@ export default function App() {
   const [currentLocation, setCurrentLocation] = useState(null);
   const [destination, setDestination] = useState('');
   const [routeCoordinates, setRouteCoordinates] = useState([]);
+  const [routeDuration, setRouteDuration] = useState(null); // Route duration in seconds
+  const [routeDistance, setRouteDistance] = useState(null); // Route distance in meters
   const [weatherHourlyData, setWeatherHourlyData] = useState([]); // Full hourly forecasts for all points
   const [weatherData, setWeatherData] = useState([]); // Current hour's weather data for display
-  const [selectedTime, setSelectedTime] = useState(0); // Hours from now
+  const [departureTimeOffset, setDepartureTimeOffset] = useState(0); // Minutes from now for departure
+  const [selectedTime, setSelectedTime] = useState(0); // Hours from now (for slider preview)
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
@@ -86,6 +90,8 @@ export default function App() {
       // Get route
       const route = await getDirections(origin, dest);
       setRouteCoordinates(route.coordinates);
+      setRouteDuration(route.duration); // Duration in seconds
+      setRouteDistance(route.distance); // Distance in meters
 
       // IMPORTANT: Fetch weather ONCE for all hours (0-48) - this is the ONLY API call
       // The slider will later switch between this cached data without making new API calls
@@ -109,13 +115,10 @@ export default function App() {
           setWeatherData([]);
         } else {
           setWeatherHourlyData(weatherHourly);
-          // Extract current hour (0) weather for initial display
-          const currentWeather = extractWeatherForHour(weatherHourly, 0);
-          console.log('Extracted current weather:', currentWeather);
-          console.log('Current weather length:', currentWeather?.length || 0);
-          setWeatherData(currentWeather);
+          // Weather will be updated by useEffect when routeDuration is set
         }
         setSelectedTime(0);
+        setDepartureTimeOffset(0); // Reset to NOW
       } catch (weatherError) {
         console.error('Weather fetch error (non-fatal):', weatherError);
         // Don't fail the whole search - show route without weather
@@ -153,7 +156,116 @@ export default function App() {
   };
 
   /**
-   * Extract weather data for a specific hour from cached hourly forecasts
+   * Calculate estimated arrival time at each point along the route
+   * Based on departure time and route duration
+   */
+  const calculateEstimatedArrivalTimes = (departureOffsetMinutes, routeDurationSeconds) => {
+    if (!routeCoordinates || routeCoordinates.length === 0 || !routeDurationSeconds) {
+      return [];
+    }
+
+    const departureTime = new Date(Date.now() + departureOffsetMinutes * 60 * 1000);
+    const totalDurationMinutes = routeDurationSeconds / 60;
+    const numPoints = routeCoordinates.length;
+
+    // Calculate estimated arrival time at each point
+    // Assume uniform speed along the route
+    return routeCoordinates.map((_, index) => {
+      // Calculate progress (0 to 1) along the route
+      const progress = index / (numPoints - 1);
+      // Calculate elapsed time in minutes
+      const elapsedMinutes = progress * totalDurationMinutes;
+      // Calculate arrival time at this point
+      const arrivalTime = new Date(departureTime.getTime() + elapsedMinutes * 60 * 1000);
+      // Calculate hours from now
+      const hoursFromNow = (arrivalTime.getTime() - Date.now()) / (1000 * 60 * 60);
+      
+      return {
+        pointIndex: index,
+        arrivalTime,
+        hoursFromNow,
+        minutesFromNow: hoursFromNow * 60
+      };
+    });
+  };
+
+  /**
+   * Extract weather data based on estimated arrival times at each point
+   * No API call - just switches between already-fetched data
+   */
+  const extractWeatherForEstimatedTimes = (hourlyData, arrivalTimes) => {
+    if (!hourlyData || hourlyData.length === 0 || !arrivalTimes || arrivalTimes.length === 0) {
+      return [];
+    }
+
+    try {
+      return hourlyData.map((pointData, index) => {
+        const { lat, lon, hourlyForecasts } = pointData;
+        if (!hourlyForecasts) {
+          console.warn('Missing hourlyForecasts for point:', lat, lon);
+          return null;
+        }
+
+        const arrivalInfo = arrivalTimes[index];
+        if (!arrivalInfo) {
+          return null;
+        }
+
+        // Calculate which forecast interval to use
+        const hoursFromNow = arrivalInfo.hoursFromNow;
+        let weather;
+
+        if (hoursFromNow <= 0) {
+          // Already passed or current
+          weather = hourlyForecasts.current;
+        } else {
+          // Map to 3-hour interval index
+          const intervalIndex = Math.floor((hoursFromNow - 1) / 3);
+          
+          if (hourlyForecasts.hourly && Array.isArray(hourlyForecasts.hourly) && hourlyForecasts.hourly.length > 0) {
+            if (intervalIndex < hourlyForecasts.hourly.length) {
+              weather = hourlyForecasts.hourly[intervalIndex];
+            } else {
+              // Beyond forecast range, use last available
+              weather = hourlyForecasts.hourly[hourlyForecasts.hourly.length - 1];
+            }
+          } else {
+            // No hourly data, use current
+            weather = hourlyForecasts.current;
+          }
+        }
+
+        if (!weather || !weather.weather) {
+          console.warn('Invalid weather data for point:', lat, lon);
+          return null;
+        }
+
+        return {
+          lat,
+          lon,
+          arrivalTime: arrivalInfo.arrivalTime,
+          hoursFromNow: arrivalInfo.hoursFromNow,
+          timestamp: weather.timestamp || Math.floor(arrivalInfo.arrivalTime.getTime() / 1000),
+          weather: {
+            temp: weather.temp || 20,
+            precip: (weather.precip && weather.precip['1h']) || 0,
+            precip_type: (weather.weather && weather.weather.main) ? weather.weather.main.toLowerCase() : 'clear',
+            wind: weather.wind_speed || 0,
+            wind_deg: weather.wind_deg || 0,
+            humidity: weather.humidity || 50,
+            condition: (weather.weather && weather.weather.main) || 'Clear',
+            description: (weather.weather && weather.weather.description) || 'clear sky'
+          }
+        };
+      }).filter(item => item !== null);
+    } catch (error) {
+      console.error('Error extracting weather for estimated times:', error);
+      return [];
+    }
+  };
+
+  /**
+   * Extract weather data for a specific hour from cached hourly forecasts (for slider preview)
    * No API call - just switches between already-fetched data
    */
   const extractWeatherForHour = (hourlyData, hoursFromNow) => {
@@ -237,20 +349,6 @@ export default function App() {
     }
   };
 
-  const handleTimeChange = (hours) => {
-    setSelectedTime(hours);
-    
-    // IMPORTANT: No API call here - just switch between cached hourly data
-    // All weather data was fetched once when the route was loaded
-    // This prevents costly API calls on every slider movement
-    if (weatherHourlyData.length > 0) {
-      const weatherForHour = extractWeatherForHour(weatherHourlyData, hours);
-      setWeatherData(weatherForHour);
-      console.log(`Switching to hour +${hours} (no API call - using cached data)`);
-    } else {
-      console.warn('No cached weather data available for slider');
-    }
-  };
 
   if (error) {
     return (
@@ -289,6 +387,36 @@ export default function App() {
         </TouchableOpacity>
       </View>
 
+      {/* Departure Time Selector and Estimated Arrival */}
+      {routeCoordinates.length > 0 && routeDuration && (
+        <View style={styles.departureContainer}>
+          <DepartureTimeSelector
+            departureTimeOffset={departureTimeOffset}
+            onDepartureTimeChange={handleDepartureTimeChange}
+          />
+          {routeDuration && (
+            <View style={styles.arrivalInfo}>
+              <Text style={styles.arrivalLabel}>Estimated Arrival:</Text>
+              <Text style={styles.arrivalTime}>
+                {(() => {
+                  const departureTime = new Date(Date.now() + departureTimeOffset * 60 * 1000);
+                  const arrivalTime = new Date(departureTime.getTime() + routeDuration * 1000);
+                  const hours = arrivalTime.getHours();
+                  const minutes = arrivalTime.getMinutes();
+                  const ampm = hours >= 12 ? 'PM' : 'AM';
+                  const displayHours = hours % 12 || 12;
+                  const displayMinutes = minutes.toString().padStart(2, '0');
+                  return `${displayHours}:${displayMinutes} ${ampm}`;
+                })()}
+              </Text>
+              <Text style={styles.durationText}>
+                ({Math.round(routeDuration / 60)} min)
+              </Text>
+            </View>
+          )}
+        </View>
+      )}
+
       {/* Map View */}
       <View style={styles.mapContainer}>
         <MapViewComponent
@@ -298,11 +426,11 @@ export default function App() {
         />
       </View>
 
-      {/* Timeline Slider */}
+      {/* Timeline Slider - Preview different departure times */}
       {routeCoordinates.length > 0 && (
         <View style={styles.sliderContainer}>
           <Text style={styles.sliderLabel}>
-            Weather Forecast: +{selectedTime} hours
+            Preview Weather: {selectedTime === 0 ? 'Current' : `+${selectedTime}h`} from departure
           </Text>
           <TimelineSlider
             value={selectedTime}
@@ -326,6 +454,36 @@ const styles = StyleSheet.create({
     backgroundColor: '#f5f5f5',
     borderBottomWidth: 1,
     borderBottomColor: '#ddd',
+  },
+  departureContainer: {
+    padding: 10,
+    backgroundColor: '#fff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#ddd',
+  },
+  arrivalInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 10,
+    padding: 8,
+    backgroundColor: '#f0f8ff',
+    borderRadius: 5,
+  },
+  arrivalLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#333',
+    marginRight: 8,
+  },
+  arrivalTime: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#1976d2',
+    marginRight: 8,
+  },
+  durationText: {
+    fontSize: 12,
+    color: '#666',
   },
   input: {
     flex: 1,
