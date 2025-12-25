@@ -46,9 +46,35 @@ router.get('/', async (req, res) => {
 
     // Decode polyline to coordinates
     const coordinates = decodePolyline(polyline);
+    
+    // CRITICAL: Normalize coordinates that are 10x too large
+    // This can happen if polyline decoder has issues
+    const normalizedCoordinates = coordinates.map(coord => {
+      let { lat, lon } = coord;
+      
+      // Fix coordinates that are 10x too large
+      if (Math.abs(lat) > 90) {
+        console.warn(`⚠️ Fixing latitude ${lat} in directions (too large), dividing by 10`);
+        lat = lat / 10;
+      }
+      if (Math.abs(lon) > 180) {
+        console.warn(`⚠️ Fixing longitude ${lon} in directions (too large), dividing by 10`);
+        lon = lon / 10;
+      }
+      
+      // Validate
+      if (isNaN(lat) || isNaN(lon) || lat < -90 || lat > 90 || lon < -180 || lon > 180) {
+        console.error(`❌ Invalid coordinate after normalization: ${lat},${lon} (original: ${coord.lat},${coord.lon})`);
+        throw new Error(`Invalid coordinate: ${lat},${lon}`);
+      }
+      
+      return { lat, lon };
+    });
 
     // Sample coordinates (every 5-10 km)
-    const sampledCoordinates = sampleCoordinates(coordinates, 5); // 5 km intervals
+    const sampledCoordinates = sampleCoordinates(normalizedCoordinates, 5); // 5 km intervals
+    
+    console.log(`📍 Directions: Returning ${sampledCoordinates.length} normalized coordinates`);
 
     res.json({
       coordinates: sampledCoordinates,
