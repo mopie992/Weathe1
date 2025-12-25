@@ -349,6 +349,13 @@ export default function App() {
     }
   };
 
+  // Update weather when departure time, route, or preview slider changes
+  useEffect(() => {
+    if (weatherHourlyData.length > 0 && routeDuration && routeCoordinates.length > 0) {
+      updateWeatherForDepartureTime(departureTimeOffset, selectedTime);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [departureTimeOffset, selectedTime, routeDuration, routeCoordinates.length, weatherHourlyData.length]);
 
   if (error) {
     return (
