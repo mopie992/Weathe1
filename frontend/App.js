@@ -7,7 +7,6 @@ const MapViewComponent = Platform.OS === 'web'
   ? require('./components/MapViewWeb').default
   : require('./components/MapViewPlaceholder').default;
 import TimelineSlider from './components/TimelineSlider';
-import AlertsPanel from './components/AlertsPanel';
 import { getDirections } from './services/directionsService';
 import { getWeather } from './services/weatherService';
 import * as Location from 'expo-location';
@@ -297,7 +296,6 @@ export default function App() {
           routeCoordinates={routeCoordinates}
           weatherData={weatherData}
         />
-        <AlertsPanel weatherData={weatherData} />
       </View>
 
       {/* Timeline Slider */}
