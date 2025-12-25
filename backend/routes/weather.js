@@ -93,7 +93,26 @@ router.get('/', async (req, res) => {
     // Fetch weather for all coordinates in parallel (much faster!)
     const weatherPromises = coordsArray.map(async (coord) => {
       try {
-        const { lat, lon } = coord;
+        let { lat, lon } = coord;
+        
+        // CRITICAL: Fix coordinates that are 10x too large (common issue from frontend)
+        // Valid latitude: -90 to 90, Valid longitude: -180 to 180
+        if (Math.abs(lat) > 90) {
+          console.warn(`⚠️ Fixing latitude ${lat} (too large), dividing by 10`);
+          lat = lat / 10;
+        }
+        if (Math.abs(lon) > 180) {
+          console.warn(`⚠️ Fixing longitude ${lon} (too large), dividing by 10`);
+          lon = lon / 10;
+        }
+        
+        // Validate coordinates are in valid range
+        if (isNaN(lat) || isNaN(lon) || lat < -90 || lat > 90 || lon < -180 || lon > 180) {
+          console.error(`❌ Invalid coordinates after fix: ${lat},${lon} (original: ${coord.lat},${coord.lon})`);
+          throw new Error(`Invalid coordinates: ${lat},${lon}`);
+        }
+        
+        console.log(`📍 Using coordinates: ${lat},${lon} (original: ${coord.lat},${coord.lon})`);
 
       // Cache key: lat/lon only (not timestamp, since we fetch all hours)
       const cacheKey = `weather:${lat}:${lon}`;
