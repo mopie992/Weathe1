@@ -177,36 +177,55 @@ router.get('/', async (req, res) => {
               console.log(`Forecast response.list length:`, forecastResponse.data.list?.length || 0);
             }
             
-            if (forecastResponse.data && forecastResponse.data.list && Array.isArray(forecastResponse.data.list)) {
-              console.log(`Forecast data received for ${lat},${lon}: ${forecastResponse.data.list.length} intervals`);
-              hourlyForecasts.hourly = forecastResponse.data.list.slice(0, 16).map((item, index) => {
-                // Interpolate between 3-hour forecasts for hourly data
-                if (!item.main || !item.weather) {
-                  console.warn(`Invalid forecast item at index ${index} for ${lat},${lon}:`, item);
-                  return null;
-                }
-                return {
-                  temp: item.main.temp,
-                  feels_like: item.main.feels_like,
-                  humidity: item.main.humidity,
-                  wind_speed: item.wind?.speed || 0,
-                  wind_deg: item.wind?.deg || 0,
-                  weather: item.weather[0],
-                  precip: { '1h': item.rain?.['3h'] ? item.rain['3h'] / 3 : item.snow?.['3h'] ? item.snow['3h'] / 3 : 0 },
-                  timestamp: item.dt
-                };
-              }).filter(item => item !== null); // Remove any null entries
-              console.log(`Processed ${hourlyForecasts.hourly.length} hourly forecasts for ${lat},${lon}`);
+            // Process forecast - API test shows this works, so process it
+            if (forecastResponse && forecastResponse.data && forecastResponse.data.list) {
+              const forecastList = forecastResponse.data.list;
+              console.log(`✅ Forecast data received for ${lat},${lon}: ${forecastList.length} intervals`);
+              
+              if (Array.isArray(forecastList) && forecastList.length > 0) {
+                hourlyForecasts.hourly = forecastList.slice(0, 16).map((item, index) => {
+                  // Validate item
+                  if (!item || !item.main || !item.weather || !Array.isArray(item.weather) || item.weather.length === 0) {
+                    console.warn(`⚠️ Invalid forecast item at index ${index} for ${lat},${lon}`);
+                    return null;
+                  }
+                  
+                  return {
+                    temp: item.main.temp,
+                    feels_like: item.main.feels_like,
+                    humidity: item.main.humidity,
+                    wind_speed: item.wind?.speed || 0,
+                    wind_deg: item.wind?.deg || 0,
+                    weather: item.weather[0],
+                    precip: { '1h': item.rain?.['3h'] ? item.rain['3h'] / 3 : item.snow?.['3h'] ? item.snow['3h'] / 3 : 0 },
+                    timestamp: item.dt
+                  };
+                }).filter(item => item !== null);
+                
+                console.log(`✅ Successfully processed ${hourlyForecasts.hourly.length} hourly forecasts for ${lat},${lon}`);
+                console.log(`✅ Sample hourly data:`, hourlyForecasts.hourly[0]);
+              } else {
+                console.error(`❌ Forecast list is not a valid array for ${lat},${lon}`);
+                hourlyForecasts.hourly = [];
+              }
             } else {
-              console.error(`No forecast data in response for ${lat},${lon}:`, {
-                hasData: !!forecastResponse.data,
-                hasList: !!(forecastResponse.data && forecastResponse.data.list),
-                isArray: Array.isArray(forecastResponse.data?.list),
-                responseKeys: forecastResponse.data ? Object.keys(forecastResponse.data) : 'no data',
-                responseSample: forecastResponse.data ? JSON.stringify(forecastResponse.data).substring(0, 200) : 'no data'
+              console.error(`❌ No forecast data in response for ${lat},${lon}:`, {
+                hasResponse: !!forecastResponse,
+                hasData: !!(forecastResponse && forecastResponse.data),
+                hasList: !!(forecastResponse && forecastResponse.data && forecastResponse.data.list),
+                isArray: Array.isArray(forecastResponse?.data?.list),
+                responseStatus: forecastResponse?.status
               });
-              hourlyForecasts.hourly = []; // Explicitly set empty array
+              hourlyForecasts.hourly = [];
             }
+            
+            // CRITICAL: Log final state before returning
+            console.log(`🔍 Final hourlyForecasts for ${lat},${lon}:`, {
+              hasCurrent: !!hourlyForecasts.current,
+              hasHourly: !!hourlyForecasts.hourly,
+              hourlyLength: hourlyForecasts.hourly?.length || 0,
+              hourlySample: hourlyForecasts.hourly?.[0] || 'none'
+            });
 
             // Cache for 1 hour (weather data updates hourly)
             await setCachedWeather(cacheKey, hourlyForecasts, 3600);
