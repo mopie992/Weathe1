@@ -113,8 +113,24 @@ export default function App() {
 
       try {
         const weatherHourly = await Promise.race([weatherPromise, timeoutPromise]);
-        console.log('Weather data received:', weatherHourly);
-        console.log('Weather data length:', weatherHourly?.length || 0);
+        console.log('=== WEATHER DATA RECEIVED ===');
+        console.log('Total points:', weatherHourly?.length || 0);
+        
+        if (weatherHourly && weatherHourly.length > 0) {
+          // Log detailed info about each point
+          weatherHourly.forEach((point, idx) => {
+            const hourlyLength = point.hourlyForecasts?.hourly?.length || 0;
+            const hasCurrent = !!point.hourlyForecasts?.current;
+            console.log(`Point ${idx}: ${point.lat},${point.lon} - hourlyLength=${hourlyLength}, hasCurrent=${hasCurrent}`);
+            if (hourlyLength > 0) {
+              console.log(`  First hourly: temp=${point.hourlyForecasts.hourly[0].temp}°C, condition=${point.hourlyForecasts.hourly[0].weather?.main}`);
+              console.log(`  Last hourly: temp=${point.hourlyForecasts.hourly[hourlyLength-1].temp}°C`);
+            }
+          });
+          
+          const pointsWithHourly = weatherHourly.filter(p => (p.hourlyForecasts?.hourly?.length || 0) > 0).length;
+          console.log(`Points with hourly data: ${pointsWithHourly}/${weatherHourly.length}`);
+        }
         
         if (!weatherHourly || weatherHourly.length === 0) {
           console.warn('No weather data received, using fallback');
