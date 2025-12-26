@@ -2,7 +2,8 @@ import React, { useEffect, useRef, useState } from 'react';
 import { StyleSheet, View, Platform, Text } from 'react-native';
 
 // Mapbox GL JS for web - load from CDN
-const MAPBOX_TOKEN = 'pk.eyJ1Ijoia3BhcmtlcjcyIiwiYSI6ImNtams4OTZhaTBybTEzZm9wdmJzejlkbDQifQ.pnMrqfJ4qv6_n9fKb8eNfQ';
+// Get token from environment variable (set in .env or Railway)
+const MAPBOX_TOKEN = process.env.EXPO_PUBLIC_MAPBOX_TOKEN || '';
 
 const MapViewWeb = ({ currentLocation, routeCoordinates, weatherData }) => {
   const mapContainer = useRef(null);
@@ -56,7 +57,12 @@ const MapViewWeb = ({ currentLocation, routeCoordinates, weatherData }) => {
     if (typeof window === 'undefined' || !mapboxgl || !currentLocation || loading) return;
 
     if (!map.current && mapContainer.current) {
-      mapboxgl.accessToken = MAPBOX_TOKEN;
+      const token = MAPBOX_TOKEN || process.env.EXPO_PUBLIC_MAPBOX_TOKEN;
+      if (!token) {
+        console.error('Mapbox token not found! Set EXPO_PUBLIC_MAPBOX_TOKEN environment variable.');
+        return;
+      }
+      mapboxgl.accessToken = token;
       
       map.current = new mapboxgl.Map({
         container: mapContainer.current,
