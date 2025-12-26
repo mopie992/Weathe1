@@ -35,7 +35,7 @@
 
 **Your Account:**
 - Dashboard: https://home.openweathermap.org/
-- API Key: `9f85f2a889dbc649a5cb54e5bdc97831`
+- API Key: `[REDACTED - Check Railway environment variables]`
 - Usage: https://home.openweathermap.org/api_keys
 
 **Free Tier Limits:**
