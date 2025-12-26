@@ -268,11 +268,13 @@ router.get('/', async (req, res) => {
                 
                 hourlyForecasts.hourly = processed.filter(item => item !== null);
                 
-                console.log(`✅ Successfully processed ${hourlyForecasts.hourly.length} hourly forecasts for ${lat},${lon} (from ${forecastList.length} raw items)`);
+                console.log(`✅ Successfully processed ${hourlyForecasts.hourly.length} hourly forecasts for ${lat},${lon} (from ${forecastList.length} raw items, ${processed.length - hourlyForecasts.hourly.length} filtered out)`);
                 if (hourlyForecasts.hourly.length > 0) {
-                  console.log(`✅ Sample hourly data:`, hourlyForecasts.hourly[0]);
+                  console.log(`✅ Sample hourly data (first):`, JSON.stringify(hourlyForecasts.hourly[0], null, 2));
+                  console.log(`✅ Sample hourly data (last):`, JSON.stringify(hourlyForecasts.hourly[hourlyForecasts.hourly.length - 1], null, 2));
                 } else {
                   console.error(`❌ All forecast items were filtered out for ${lat},${lon}!`);
+                  console.error(`❌ Processed array:`, processed.slice(0, 3)); // Show first 3 to debug
                 }
               } else {
                 console.error(`❌ Forecast list is not a valid array for ${lat},${lon}:`, {
