@@ -296,16 +296,6 @@ export default function App() {
         if (!arrivalInfo) {
           return null;
         }
-        const { lat, lon, hourlyForecasts } = pointData;
-        if (!hourlyForecasts) {
-          console.warn('Missing hourlyForecasts for point:', lat, lon);
-          return null;
-        }
-
-        const arrivalInfo = arrivalTimes[index];
-        if (!arrivalInfo) {
-          return null;
-        }
 
         // Calculate which forecast interval to use based on arrival time
         // hoursFromNow is the time from NOW when you'll arrive at this point
@@ -316,7 +306,7 @@ export default function App() {
         if (hoursFromNow <= 0) {
           // Already passed or current - use current weather
           weather = hourlyForecasts.current;
-          console.log(`Point ${index}: Using current weather (arrival in past/now)`);
+          console.log(`Point ${weatherIndex}: Using current weather (arrival in past/now)`);
         } else if (minutesFromNow < 60) {
           // Less than 1 hour away - use current weather (closest we have)
           weather = hourlyForecasts.current;
