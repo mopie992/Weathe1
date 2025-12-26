@@ -10,7 +10,7 @@
 5. Select the `backend` folder
 6. Add environment variables:
    - `MAPBOX_TOKEN=[REDACTED_MAPBOX_TOKEN]`
-   - `OPENWEATHER_KEY=[REDACTED_OPENWEATHER_KEY]`
+   - `OPENWEATHER_KEY=your_openweather_key_here`
    - `PORT` (auto-set by Railway)
 7. Railway will auto-deploy and give you a URL like: `https://your-app.railway.app`
 

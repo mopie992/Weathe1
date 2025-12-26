@@ -29,9 +29,10 @@
    - Set Root Directory to: `backend`
 7. Add Environment Variables (Settings → Variables):
    ```
-   MAPBOX_TOKEN=[REDACTED_MAPBOX_TOKEN]
-   OPENWEATHER_KEY=[REDACTED_OPENWEATHER_KEY]
+   MAPBOX_TOKEN=your_mapbox_token_here
+   OPENWEATHER_KEY=your_openweather_key_here
    ```
+   **Important**: Never commit real API keys to GitHub! Use Railway's environment variables instead.
 8. Railway will auto-deploy and give you a URL like: `https://weatherroute-production.up.railway.app`
 
 ## Step 3: Update Frontend to Use Online Backend
