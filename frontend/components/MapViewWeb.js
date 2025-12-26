@@ -3,10 +3,16 @@ import { StyleSheet, View, Platform, Text } from 'react-native';
 
 // Mapbox GL JS for web - load from CDN
 // Get token from environment variable (set in .env or Railway)
-// For Expo, environment variables are available at build time
-// SECURITY: No hardcoded tokens - must use environment variable
-const MAPBOX_TOKEN = process.env.EXPO_PUBLIC_MAPBOX_TOKEN || 
-  (typeof window !== 'undefined' && window.EXPO_PUBLIC_MAPBOX_TOKEN) || '';
+// For Expo web, try multiple sources
+let MAPBOX_TOKEN = '';
+if (typeof window !== 'undefined') {
+  // Try Expo's extra config first (from app.config.js)
+  MAPBOX_TOKEN = window.__EXPO_CONFIG__?.extra?.mapboxToken || 
+                 process.env.EXPO_PUBLIC_MAPBOX_TOKEN ||
+                 '';
+} else {
+  MAPBOX_TOKEN = process.env.EXPO_PUBLIC_MAPBOX_TOKEN || '';
+}
 
 const MapViewWeb = ({ currentLocation, routeCoordinates, weatherData }) => {
   const mapContainer = useRef(null);
