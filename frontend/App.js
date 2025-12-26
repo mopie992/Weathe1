@@ -189,7 +189,8 @@ export default function App() {
         arrivalTime,
         hoursFromNow,
         minutesFromNow,
-        elapsedMinutesFromDeparture: elapsedMinutes
+        elapsedMinutesFromDeparture: elapsedMinutes,
+        progress: progress
       };
     });
   };
@@ -427,6 +428,11 @@ export default function App() {
 
       const elapsedMinutes = arrivalInfo.elapsedMinutesFromDeparture;
       
+      if (elapsedMinutes === undefined || isNaN(elapsedMinutes)) {
+        console.warn(`Missing elapsedMinutes for point ${index}`);
+        return;
+      }
+      
       // Show marker if:
       // 1. It's the first point (start)
       // 2. It's the last point (destination)
@@ -444,7 +450,9 @@ export default function App() {
       if (isFirst || isLast || (is30MinInterval && isFarEnoughFromLast)) {
         filtered.push(weatherItem);
         lastShownMinutes = elapsedMinutes;
-        console.log(`Including marker at index ${index}: ${elapsedMinutes.toFixed(1)} min elapsed`);
+        console.log(`✓ Including marker at index ${index}: ${elapsedMinutes.toFixed(1)} min elapsed (${(elapsedMinutes/60).toFixed(1)}h)`);
+      } else {
+        console.log(`✗ Skipping marker at index ${index}: ${elapsedMinutes.toFixed(1)} min elapsed (not at 30-min interval)`);
       }
     });
 
