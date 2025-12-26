@@ -222,12 +222,30 @@ router.get('/', async (req, res) => {
             if (forecastResponse && forecastResponse.data && forecastResponse.data.list) {
               const forecastList = forecastResponse.data.list;
               console.log(`✅ Forecast data received for ${lat},${lon}: ${forecastList.length} intervals`);
+              console.log(`✅ Forecast list sample (first item):`, forecastList[0] ? {
+                dt: forecastList[0].dt,
+                main: forecastList[0].main ? 'exists' : 'missing',
+                weather: forecastList[0].weather ? 'exists' : 'missing',
+                weatherLength: forecastList[0].weather?.length || 0
+              } : 'null');
               
               if (Array.isArray(forecastList) && forecastList.length > 0) {
-                hourlyForecasts.hourly = forecastList.slice(0, 16).map((item, index) => {
+                const processed = forecastList.slice(0, 16).map((item, index) => {
                   // Validate item
-                  if (!item || !item.main || !item.weather || !Array.isArray(item.weather) || item.weather.length === 0) {
-                    console.warn(`⚠️ Invalid forecast item at index ${index} for ${lat},${lon}`);
+                  if (!item) {
+                    console.warn(`⚠️ Null item at index ${index} for ${lat},${lon}`);
+                    return null;
+                  }
+                  if (!item.main) {
+                    console.warn(`⚠️ Missing main at index ${index} for ${lat},${lon}`);
+                    return null;
+                  }
+                  if (!item.weather || !Array.isArray(item.weather) || item.weather.length === 0) {
+                    console.warn(`⚠️ Invalid weather at index ${index} for ${lat},${lon}:`, {
+                      hasWeather: !!item.weather,
+                      isArray: Array.isArray(item.weather),
+                      length: item.weather?.length || 0
+                    });
                     return null;
                   }
                   
@@ -241,12 +259,22 @@ router.get('/', async (req, res) => {
                     precip: { '1h': item.rain?.['3h'] ? item.rain['3h'] / 3 : item.snow?.['3h'] ? item.snow['3h'] / 3 : 0 },
                     timestamp: item.dt
                   };
-                }).filter(item => item !== null);
+                });
                 
-                console.log(`✅ Successfully processed ${hourlyForecasts.hourly.length} hourly forecasts for ${lat},${lon}`);
-                console.log(`✅ Sample hourly data:`, hourlyForecasts.hourly[0]);
+                hourlyForecasts.hourly = processed.filter(item => item !== null);
+                
+                console.log(`✅ Successfully processed ${hourlyForecasts.hourly.length} hourly forecasts for ${lat},${lon} (from ${forecastList.length} raw items)`);
+                if (hourlyForecasts.hourly.length > 0) {
+                  console.log(`✅ Sample hourly data:`, hourlyForecasts.hourly[0]);
+                } else {
+                  console.error(`❌ All forecast items were filtered out for ${lat},${lon}!`);
+                }
               } else {
-                console.error(`❌ Forecast list is not a valid array for ${lat},${lon}`);
+                console.error(`❌ Forecast list is not a valid array for ${lat},${lon}:`, {
+                  isArray: Array.isArray(forecastList),
+                  length: forecastList?.length || 0,
+                  type: typeof forecastList
+                });
                 hourlyForecasts.hourly = [];
               }
             } else {
@@ -255,7 +283,8 @@ router.get('/', async (req, res) => {
                 hasData: !!(forecastResponse && forecastResponse.data),
                 hasList: !!(forecastResponse && forecastResponse.data && forecastResponse.data.list),
                 isArray: Array.isArray(forecastResponse?.data?.list),
-                responseStatus: forecastResponse?.status
+                responseStatus: forecastResponse?.status,
+                responseDataKeys: forecastResponse?.data ? Object.keys(forecastResponse.data) : 'no data'
               });
               hourlyForecasts.hourly = [];
             }
