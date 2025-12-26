@@ -10,7 +10,7 @@
 **Your Account:**
 - Dashboard: https://account.mapbox.com/
 - Usage: https://account.mapbox.com/access-tokens/
-- Token: `[REDACTED_MAPBOX_TOKEN]`
+- Token: `[REDACTED - Check Railway environment variables]`
 
 **Free Tier Limits:**
 - **Directions API**: 100,000 requests/month free
