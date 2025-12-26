@@ -418,27 +418,37 @@ export default function App() {
 
     const filtered = [];
     let lastShownMinutes = -Infinity;
+    const INTERVAL_MINUTES = 30;
+    const TOLERANCE_MINUTES = 5; // Allow 5 min tolerance for rounding
 
     weatherData.forEach((weatherItem, index) => {
       const arrivalInfo = arrivalTimes[index];
-      if (!arrivalInfo) return;
+      if (!arrivalInfo || !arrivalInfo.elapsedMinutesFromDeparture) return;
 
       const elapsedMinutes = arrivalInfo.elapsedMinutesFromDeparture;
       
       // Show marker if:
       // 1. It's the first point (start)
       // 2. It's the last point (destination)
-      // 3. It's at a 30-minute interval (or close to it, within 5 min tolerance)
+      // 3. It's at a 30-minute interval (0, 30, 60, 90, etc.)
       const isFirst = index === 0;
       const isLast = index === weatherData.length - 1;
-      const is30MinInterval = Math.abs(elapsedMinutes % 30) < 5 || elapsedMinutes - lastShownMinutes >= 25;
       
-      if (isFirst || isLast || is30MinInterval) {
+      // Check if this is close to a 30-minute interval
+      const remainder = elapsedMinutes % INTERVAL_MINUTES;
+      const is30MinInterval = remainder < TOLERANCE_MINUTES || remainder > (INTERVAL_MINUTES - TOLERANCE_MINUTES);
+      
+      // Also ensure we don't show markers too close together (at least 25 min apart)
+      const isFarEnoughFromLast = elapsedMinutes - lastShownMinutes >= (INTERVAL_MINUTES - TOLERANCE_MINUTES);
+      
+      if (isFirst || isLast || (is30MinInterval && isFarEnoughFromLast)) {
         filtered.push(weatherItem);
         lastShownMinutes = elapsedMinutes;
+        console.log(`Including marker at index ${index}: ${elapsedMinutes.toFixed(1)} min elapsed`);
       }
     });
 
+    console.log(`Filtered ${weatherData.length} points to ${filtered.length} markers (30-min intervals)`);
     return filtered;
   };
 
