@@ -156,6 +156,7 @@ router.get('/', async (req, res) => {
             // Use Current Weather API + Forecast API (free tier)
             let currentResponse, forecastResponse;
             
+            console.log(`🌐 Fetching weather for ${lat},${lon}...`);
             try {
               [currentResponse, forecastResponse] = await Promise.all([
                 // Current weather
@@ -179,8 +180,9 @@ router.get('/', async (req, res) => {
                   timeout: 15000 // Increased timeout for OpenWeather API
                 })
               ]);
+              console.log(`✅ API calls completed for ${lat},${lon}`);
             } catch (apiError) {
-              console.error(`API call error for ${lat},${lon}:`, {
+              console.error(`❌ API call error for ${lat},${lon}:`, {
                 message: apiError.message,
                 code: apiError.code,
                 status: apiError.response?.status,
@@ -215,12 +217,21 @@ router.get('/', async (req, res) => {
             };
 
             // Process forecast (3-hour intervals, convert to hourly estimates)
-            console.log(`Forecast response status for ${lat},${lon}:`, forecastResponse.status);
-            console.log(`Forecast response has data:`, !!forecastResponse.data);
-            if (forecastResponse.data) {
-              console.log(`Forecast response keys:`, Object.keys(forecastResponse.data));
-              console.log(`Forecast response.list exists:`, !!forecastResponse.data.list);
-              console.log(`Forecast response.list length:`, forecastResponse.data.list?.length || 0);
+            console.log(`📊 Processing forecast for ${lat},${lon}...`);
+            console.log(`  Forecast response status:`, forecastResponse?.status);
+            console.log(`  Forecast response has data:`, !!forecastResponse?.data);
+            if (forecastResponse?.data) {
+              console.log(`  Forecast response keys:`, Object.keys(forecastResponse.data));
+              console.log(`  Forecast response.list exists:`, !!forecastResponse.data.list);
+              console.log(`  Forecast response.list length:`, forecastResponse.data.list?.length || 0);
+              if (forecastResponse.data.list && forecastResponse.data.list.length > 0) {
+                console.log(`  First forecast item sample:`, {
+                  dt: forecastResponse.data.list[0].dt,
+                  hasMain: !!forecastResponse.data.list[0].main,
+                  hasWeather: !!forecastResponse.data.list[0].weather,
+                  weatherLength: forecastResponse.data.list[0].weather?.length || 0
+                });
+              }
             }
             
             // Process forecast - API test shows this works, so process it
