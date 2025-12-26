@@ -4,7 +4,7 @@
   "main": "node_modules/expo/AppEntry.js",
   "scripts": {
     "start": "expo start",
-    "start:web": "cross-env EXPO_PUBLIC_MAPBOX_TOKEN=pk.eyJ1Ijoia3BhcmtlcjcyIiwiYSI6ImNtam1lM2RteTFibnMzZG95cTNkcmp6cG4ifQ.JVhbzl61PK0gbQUscHhuVw expo start --web",
+    "start:web": "expo start --web",
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web"
