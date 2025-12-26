@@ -158,6 +158,7 @@ export default function App() {
   /**
    * Calculate estimated arrival time at each point along the route
    * Based on departure time and route duration
+   * Each point shows weather at the time you'll arrive there
    */
   const calculateEstimatedArrivalTimes = (departureOffsetMinutes, routeDurationSeconds) => {
     if (!routeCoordinates || routeCoordinates.length === 0 || !routeDurationSeconds) {
@@ -173,18 +174,22 @@ export default function App() {
     return routeCoordinates.map((_, index) => {
       // Calculate progress (0 to 1) along the route
       const progress = index / (numPoints - 1);
-      // Calculate elapsed time in minutes
+      // Calculate elapsed time in minutes from departure
       const elapsedMinutes = progress * totalDurationMinutes;
-      // Calculate arrival time at this point
+      // Calculate arrival time at this point (departure + elapsed time)
       const arrivalTime = new Date(departureTime.getTime() + elapsedMinutes * 60 * 1000);
-      // Calculate hours from now
+      // Calculate hours from NOW (not from departure) for weather lookup
       const hoursFromNow = (arrivalTime.getTime() - Date.now()) / (1000 * 60 * 60);
+      const minutesFromNow = (arrivalTime.getTime() - Date.now()) / (1000 * 60);
+      
+      console.log(`Point ${index}: Progress ${(progress * 100).toFixed(1)}%, Elapsed ${elapsedMinutes.toFixed(1)}min, Arrival in ${hoursFromNow.toFixed(2)}h from now`);
       
       return {
         pointIndex: index,
         arrivalTime,
         hoursFromNow,
-        minutesFromNow: hoursFromNow * 60
+        minutesFromNow,
+        elapsedMinutesFromDeparture: elapsedMinutes
       };
     });
   };
@@ -211,27 +216,39 @@ export default function App() {
           return null;
         }
 
-        // Calculate which forecast interval to use
+        // Calculate which forecast interval to use based on arrival time
+        // hoursFromNow is the time from NOW when you'll arrive at this point
         const hoursFromNow = arrivalInfo.hoursFromNow;
+        const minutesFromNow = arrivalInfo.minutesFromNow;
         let weather;
 
         if (hoursFromNow <= 0) {
-          // Already passed or current
+          // Already passed or current - use current weather
           weather = hourlyForecasts.current;
+          console.log(`Point ${index}: Using current weather (arrival in past/now)`);
+        } else if (minutesFromNow < 60) {
+          // Less than 1 hour away - use current weather (closest we have)
+          weather = hourlyForecasts.current;
+          console.log(`Point ${index}: Using current weather (arrival in ${minutesFromNow.toFixed(0)}min)`);
         } else {
-          // Map to 3-hour interval index
+          // More than 1 hour away - map to 3-hour interval index
+          // OpenWeather gives 3-hour intervals, so:
+          // 1-3 hours = index 0, 4-6 hours = index 1, etc.
           const intervalIndex = Math.floor((hoursFromNow - 1) / 3);
           
           if (hourlyForecasts.hourly && Array.isArray(hourlyForecasts.hourly) && hourlyForecasts.hourly.length > 0) {
             if (intervalIndex < hourlyForecasts.hourly.length) {
               weather = hourlyForecasts.hourly[intervalIndex];
+              console.log(`Point ${index}: Using forecast interval ${intervalIndex} (arrival in ${hoursFromNow.toFixed(1)}h, temp: ${weather.temp}°C)`);
             } else {
               // Beyond forecast range, use last available
               weather = hourlyForecasts.hourly[hourlyForecasts.hourly.length - 1];
+              console.log(`Point ${index}: Beyond forecast, using last available (arrival in ${hoursFromNow.toFixed(1)}h)`);
             }
           } else {
             // No hourly data, use current
             weather = hourlyForecasts.current;
+            console.log(`Point ${index}: No hourly data, using current`);
           }
         }
 
@@ -370,9 +387,11 @@ export default function App() {
     const arrivalTimes = calculateEstimatedArrivalTimes(departureOffsetMinutes, routeDuration);
     
     // If preview offset is set (from slider), adjust arrival times
+    // This shifts the departure time forward/backward to preview different scenarios
     if (previewHoursOffset !== 0) {
       arrivalTimes.forEach(arrival => {
         arrival.hoursFromNow += previewHoursOffset;
+        arrival.minutesFromNow += previewHoursOffset * 60;
         arrival.arrivalTime = new Date(arrival.arrivalTime.getTime() + previewHoursOffset * 60 * 60 * 1000);
       });
     }
