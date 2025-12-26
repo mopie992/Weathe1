@@ -169,44 +169,45 @@ export default function App() {
 
     const totalDurationMinutes = routeDurationSeconds / 60;
     const INTERVAL_MINUTES = 30;
-    const numIntervals = Math.ceil(totalDurationMinutes / INTERVAL_MINUTES);
     
     // Calculate which points we need (every 30 minutes)
     const weatherPoints = [];
     const numPoints = routeCoordinates.length;
+    const usedIndices = new Set();
 
     // Always include first point
     weatherPoints.push(routeCoordinates[0]);
+    usedIndices.add(0);
 
     // Add points at 30-minute intervals
-    for (let i = 1; i <= numIntervals; i++) {
-      const targetMinutes = i * INTERVAL_MINUTES;
-      if (targetMinutes >= totalDurationMinutes) {
-        // Don't go beyond route duration
-        break;
-      }
-      
+    let targetMinutes = INTERVAL_MINUTES;
+    while (targetMinutes < totalDurationMinutes) {
       // Calculate which route point corresponds to this time
       const progress = targetMinutes / totalDurationMinutes;
-      const pointIndex = Math.floor(progress * (numPoints - 1));
+      const pointIndex = Math.min(
+        Math.floor(progress * (numPoints - 1)),
+        numPoints - 1
+      );
       
-      // Make sure we don't duplicate points
-      if (pointIndex > 0 && pointIndex < numPoints) {
-        const point = routeCoordinates[pointIndex];
-        // Check if we already have this point
-        if (!weatherPoints.find(p => p.lat === point.lat && p.lon === point.lon)) {
-          weatherPoints.push(point);
-        }
+      // Make sure we haven't used this index and it's valid
+      if (pointIndex > 0 && pointIndex < numPoints && !usedIndices.has(pointIndex)) {
+        weatherPoints.push(routeCoordinates[pointIndex]);
+        usedIndices.add(pointIndex);
+        console.log(`Added weather point at ${targetMinutes} min (index ${pointIndex}, progress ${(progress*100).toFixed(1)}%)`);
       }
+      
+      targetMinutes += INTERVAL_MINUTES;
     }
 
-    // Always include last point
-    const lastPoint = routeCoordinates[routeCoordinates.length - 1];
-    if (!weatherPoints.find(p => p.lat === lastPoint.lat && p.lon === lastPoint.lon)) {
-      weatherPoints.push(lastPoint);
+    // Always include last point if not already included
+    const lastIndex = numPoints - 1;
+    if (!usedIndices.has(lastIndex)) {
+      weatherPoints.push(routeCoordinates[lastIndex]);
+      usedIndices.add(lastIndex);
     }
 
     console.log(`Calculated ${weatherPoints.length} weather points for ${totalDurationMinutes.toFixed(1)} min trip (30-min intervals)`);
+    console.log(`Weather points:`, weatherPoints.map((p, i) => `Point ${i}: ${p.lat.toFixed(4)},${p.lon.toFixed(4)}`));
     return weatherPoints;
   };
 
@@ -253,14 +254,46 @@ export default function App() {
   /**
    * Extract weather data based on estimated arrival times at each point
    * No API call - just switches between already-fetched data
+   * Note: hourlyData only contains weather for the 30-min interval points we fetched
    */
   const extractWeatherForEstimatedTimes = (hourlyData, arrivalTimes) => {
-    if (!hourlyData || hourlyData.length === 0 || !arrivalTimes || arrivalTimes.length === 0) {
+    if (!hourlyData || hourlyData.length === 0) {
       return [];
     }
 
     try {
-      return hourlyData.map((pointData, index) => {
+      // hourlyData only has weather for the 30-min interval points we fetched
+      // arrivalTimes has times for ALL route points
+      // We need to map weather data to the corresponding route points
+      
+      // Create a map of weather data by coordinates (for quick lookup)
+      const weatherMap = new Map();
+      hourlyData.forEach((pointData) => {
+        const key = `${pointData.lat.toFixed(4)},${pointData.lon.toFixed(4)}`;
+        weatherMap.set(key, pointData);
+      });
+
+      // For each route coordinate, find matching weather data and calculate arrival time
+      return routeCoordinates.map((routePoint, routeIndex) => {
+        const key = `${routePoint.lat.toFixed(4)},${routePoint.lon.toFixed(4)}`;
+        const pointData = weatherMap.get(key);
+        
+        // If this route point doesn't have weather data, skip it (it's not a 30-min interval point)
+        if (!pointData) {
+          return null;
+        }
+
+        // Find the arrival time for this route point
+        const arrivalInfo = arrivalTimes[routeIndex];
+        if (!arrivalInfo) {
+          return null;
+        }
+
+        const { lat, lon, hourlyForecasts } = pointData;
+        if (!hourlyForecasts) {
+          console.warn('Missing hourlyForecasts for point:', lat, lon);
+          return null;
+        }
         const { lat, lon, hourlyForecasts } = pointData;
         if (!hourlyForecasts) {
           console.warn('Missing hourlyForecasts for point:', lat, lon);
@@ -453,9 +486,12 @@ export default function App() {
     }
 
     // Extract weather for estimated arrival times
+    // Note: weatherHourlyData only contains data for 30-min interval points
+    // extractWeatherForEstimatedTimes will map it to route coordinates
     const weatherForTimes = extractWeatherForEstimatedTimes(weatherHourlyData, arrivalTimes);
     
     // Filter to only show markers every 30 minutes along the trip
+    // Since we already fetched only 30-min points, this mainly validates spacing
     const filteredWeatherData = filterWeatherTo30MinIntervals(weatherForTimes, arrivalTimes);
     setWeatherData(filteredWeatherData);
     
