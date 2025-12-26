@@ -76,19 +76,42 @@ const MapViewWeb = ({ currentLocation, routeCoordinates, weatherData }) => {
 
     if (!map.current && mapContainer.current) {
       // Try multiple ways to get the token (Expo loads env vars at build time)
-      const token = MAPBOX_TOKEN || 
-                    process.env.EXPO_PUBLIC_MAPBOX_TOKEN || 
-                    (typeof window !== 'undefined' && window.EXPO_PUBLIC_MAPBOX_TOKEN);
+      let token = MAPBOX_TOKEN;
+      
+      // Debug: Log all possible sources
+      console.log('Token lookup debug:', {
+        MAPBOX_TOKEN: MAPBOX_TOKEN ? 'set (' + MAPBOX_TOKEN.substring(0, 20) + '...)' : 'not set',
+        processEnv: process.env.EXPO_PUBLIC_MAPBOX_TOKEN ? 'set' : 'not set',
+        constantsExtra: Constants.expoConfig?.extra?.mapboxToken ? 'set' : 'not set',
+        windowVar: typeof window !== 'undefined' && window.EXPO_PUBLIC_MAPBOX_TOKEN ? 'set' : 'not set',
+        allExpoPublicKeys: Object.keys(process.env).filter(k => k.startsWith('EXPO_PUBLIC_'))
+      });
+      
+      // Try Constants.expoConfig.extra first (from app.config.js)
+      if (!token && Constants.expoConfig?.extra?.mapboxToken) {
+        token = Constants.expoConfig.extra.mapboxToken;
+        console.log('Using token from Constants.expoConfig.extra');
+      }
+      
+      // Try process.env
+      if (!token && process.env.EXPO_PUBLIC_MAPBOX_TOKEN) {
+        token = process.env.EXPO_PUBLIC_MAPBOX_TOKEN;
+        console.log('Using token from process.env.EXPO_PUBLIC_MAPBOX_TOKEN');
+      }
+      
+      // Try window variable
+      if (!token && typeof window !== 'undefined' && window.EXPO_PUBLIC_MAPBOX_TOKEN) {
+        token = window.EXPO_PUBLIC_MAPBOX_TOKEN;
+        console.log('Using token from window.EXPO_PUBLIC_MAPBOX_TOKEN');
+      }
       
       if (!token) {
         console.error('Mapbox token not found! Set EXPO_PUBLIC_MAPBOX_TOKEN environment variable.');
-        console.log('Available env vars:', {
-          MAPBOX_TOKEN: MAPBOX_TOKEN ? 'set' : 'not set',
-          EXPO_PUBLIC_MAPBOX_TOKEN: process.env.EXPO_PUBLIC_MAPBOX_TOKEN ? 'set' : 'not set',
-          allEnvKeys: Object.keys(process.env).filter(k => k.includes('MAPBOX'))
-        });
+        console.log('Full Constants.expoConfig:', Constants.expoConfig);
         return;
       }
+      
+      console.log('Mapbox token found, initializing map...');
       mapboxgl.accessToken = token;
       
       map.current = new mapboxgl.Map({
