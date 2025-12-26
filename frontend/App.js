@@ -19,6 +19,7 @@ export default function App() {
   const [routeDuration, setRouteDuration] = useState(null); // Route duration in seconds
   const [routeDistance, setRouteDistance] = useState(null); // Route distance in meters
   const [weatherPoints, setWeatherPoints] = useState([]); // Coordinates we fetched weather for (30-min intervals)
+  const [weatherPointIndices, setWeatherPointIndices] = useState([]); // Route indices corresponding to weather points
   const [weatherHourlyData, setWeatherHourlyData] = useState([]); // Full hourly forecasts for weather points only
   const [weatherData, setWeatherData] = useState([]); // Current hour's weather data for display
   const [departureTimeOffset, setDepartureTimeOffset] = useState(0); // Minutes from now for departure
@@ -96,8 +97,9 @@ export default function App() {
 
       // CRITICAL: Only fetch weather for points we'll actually display (every 30 minutes)
       // This dramatically reduces API calls for long trips
-      const calculatedWeatherPoints = calculateWeatherPoints(route.coordinates, route.duration);
+      const { points: calculatedWeatherPoints, indices: calculatedWeatherIndices } = calculateWeatherPoints(route.coordinates, route.duration);
       setWeatherPoints(calculatedWeatherPoints); // Store which points we fetched weather for
+      setWeatherPointIndices(calculatedWeatherIndices); // Store route indices for each weather point
       console.log(`Route: ${route.coordinates.length} total points, ${route.duration/60} min duration`);
       console.log(`Fetching weather for ${calculatedWeatherPoints.length} points (30-min intervals only)...`);
       
@@ -162,11 +164,12 @@ export default function App() {
 
   /**
    * Calculate which route points we need weather for (every 30 minutes)
+   * Returns both the coordinates and their corresponding route indices
    * This reduces API calls by only fetching weather for displayed markers
    */
   const calculateWeatherPoints = (routeCoordinates, routeDurationSeconds) => {
     if (!routeCoordinates || routeCoordinates.length === 0 || !routeDurationSeconds) {
-      return [];
+      return { points: [], indices: [] };
     }
 
     const totalDurationMinutes = routeDurationSeconds / 60;
@@ -174,11 +177,13 @@ export default function App() {
     
     // Calculate which points we need (every 30 minutes)
     const weatherPoints = [];
+    const weatherIndices = [];
     const numPoints = routeCoordinates.length;
     const usedIndices = new Set();
 
     // Always include first point
     weatherPoints.push(routeCoordinates[0]);
+    weatherIndices.push(0);
     usedIndices.add(0);
 
     // Add points at 30-minute intervals
@@ -194,6 +199,7 @@ export default function App() {
       // Make sure we haven't used this index and it's valid
       if (pointIndex > 0 && pointIndex < numPoints && !usedIndices.has(pointIndex)) {
         weatherPoints.push(routeCoordinates[pointIndex]);
+        weatherIndices.push(pointIndex);
         usedIndices.add(pointIndex);
         console.log(`Added weather point at ${targetMinutes} min (index ${pointIndex}, progress ${(progress*100).toFixed(1)}%)`);
       }
@@ -205,12 +211,13 @@ export default function App() {
     const lastIndex = numPoints - 1;
     if (!usedIndices.has(lastIndex)) {
       weatherPoints.push(routeCoordinates[lastIndex]);
+      weatherIndices.push(lastIndex);
       usedIndices.add(lastIndex);
     }
 
     console.log(`Calculated ${weatherPoints.length} weather points for ${totalDurationMinutes.toFixed(1)} min trip (30-min intervals)`);
-    console.log(`Weather points:`, weatherPoints.map((p, i) => `Point ${i}: ${p.lat.toFixed(4)},${p.lon.toFixed(4)}`));
-    return weatherPoints;
+    console.log(`Weather points:`, weatherPoints.map((p, i) => `Point ${i}: ${p.lat.toFixed(4)},${p.lon.toFixed(4)} (route index ${weatherIndices[i]})`));
+    return { points: weatherPoints, indices: weatherIndices };
   };
 
   /**
@@ -265,23 +272,9 @@ export default function App() {
 
     try {
       // hourlyData has weather for the 30-min interval points (weatherPoints)
-      // We need to match each weather point to its corresponding route coordinate and arrival time
+      // We already know which route indices correspond to each weather point (weatherPointIndices)
+      // Use that mapping directly instead of trying to match coordinates
       
-      // Create a map of route coordinates for quick lookup
-      // Use a more tolerant matching approach since coordinates might have slight differences
-      const routeCoordMap = new Map();
-      routeCoordinates.forEach((coord, index) => {
-        // Store multiple precision levels for matching
-        const lat = typeof coord.lat === 'number' ? coord.lat : parseFloat(coord.lat);
-        const lon = typeof coord.lon === 'number' ? coord.lon : parseFloat(coord.lon);
-        const key4 = `${lat.toFixed(4)},${lon.toFixed(4)}`;
-        const key3 = `${lat.toFixed(3)},${lon.toFixed(3)}`;
-        const key2 = `${lat.toFixed(2)},${lon.toFixed(2)}`;
-        routeCoordMap.set(key4, { coord, index });
-        routeCoordMap.set(key3, { coord, index });
-        routeCoordMap.set(key2, { coord, index });
-      });
-
       // Process each weather point we fetched
       return hourlyData.map((pointData, weatherIndex) => {
         const { lat, lon, hourlyForecasts } = pointData;
@@ -290,47 +283,17 @@ export default function App() {
           return null;
         }
 
-        // Try to find the corresponding route coordinate with multiple precision levels
-        let routeInfo = null;
-        const precisions = [4, 3, 2];
-        for (const prec of precisions) {
-          const key = `${lat.toFixed(prec)},${lon.toFixed(prec)}`;
-          routeInfo = routeCoordMap.get(key);
-          if (routeInfo) {
-            console.log(`Matched weather point ${lat},${lon} to route at precision ${prec}`);
-            break;
-          }
-        }
-        
-        // If still not found, try finding the closest route point by distance
-        if (!routeInfo) {
-          let minDistance = Infinity;
-          let closestIndex = -1;
-          routeCoordinates.forEach((routeCoord, routeIndex) => {
-            const routeLat = typeof routeCoord.lat === 'number' ? routeCoord.lat : parseFloat(routeCoord.lat);
-            const routeLon = typeof routeCoord.lon === 'number' ? routeCoord.lon : parseFloat(routeCoord.lon);
-            // Calculate distance in degrees (simple approximation)
-            const distance = Math.sqrt(
-              Math.pow(lat - routeLat, 2) + Math.pow(lon - routeLon, 2)
-            );
-            if (distance < minDistance && distance < 0.01) { // Within ~1km
-              minDistance = distance;
-              closestIndex = routeIndex;
-            }
-          });
-          
-          if (closestIndex >= 0) {
-            routeInfo = { coord: routeCoordinates[closestIndex], index: closestIndex };
-            console.log(`Matched weather point ${lat},${lon} to closest route point (distance: ${minDistance.toFixed(6)})`);
-          }
-        }
-        
-        if (!routeInfo) {
-          console.warn(`Could not find route coordinate for weather point: ${lat},${lon}`);
+        // Use the stored route index mapping instead of coordinate matching
+        const routeIndex = weatherPointIndices[weatherIndex];
+        if (routeIndex === undefined || routeIndex === null) {
+          console.warn(`No route index mapping for weather point ${weatherIndex}: ${lat},${lon}`);
           return null;
         }
-
-        const routeIndex = routeInfo.index;
+        
+        if (routeIndex < 0 || routeIndex >= routeCoordinates.length) {
+          console.warn(`Invalid route index ${routeIndex} for weather point ${weatherIndex}`);
+          return null;
+        }
         const arrivalInfo = arrivalTimes[routeIndex];
         if (!arrivalInfo) {
           return null;
