@@ -18,7 +18,8 @@ export default function App() {
   const [routeCoordinates, setRouteCoordinates] = useState([]);
   const [routeDuration, setRouteDuration] = useState(null); // Route duration in seconds
   const [routeDistance, setRouteDistance] = useState(null); // Route distance in meters
-  const [weatherHourlyData, setWeatherHourlyData] = useState([]); // Full hourly forecasts for all points
+  const [weatherPoints, setWeatherPoints] = useState([]); // Coordinates we fetched weather for (30-min intervals)
+  const [weatherHourlyData, setWeatherHourlyData] = useState([]); // Full hourly forecasts for weather points only
   const [weatherData, setWeatherData] = useState([]); // Current hour's weather data for display
   const [departureTimeOffset, setDepartureTimeOffset] = useState(0); // Minutes from now for departure
   const [selectedTime, setSelectedTime] = useState(0); // Hours from now (for slider preview)
@@ -95,13 +96,14 @@ export default function App() {
 
       // CRITICAL: Only fetch weather for points we'll actually display (every 30 minutes)
       // This dramatically reduces API calls for long trips
-      const weatherPoints = calculateWeatherPoints(route.coordinates, route.duration);
+      const calculatedWeatherPoints = calculateWeatherPoints(route.coordinates, route.duration);
+      setWeatherPoints(calculatedWeatherPoints); // Store which points we fetched weather for
       console.log(`Route: ${route.coordinates.length} total points, ${route.duration/60} min duration`);
-      console.log(`Fetching weather for ${weatherPoints.length} points (30-min intervals only)...`);
+      console.log(`Fetching weather for ${calculatedWeatherPoints.length} points (30-min intervals only)...`);
       
       // IMPORTANT: Fetch weather ONCE for all hours (0-48) - this is the ONLY API call
       // The slider will later switch between this cached data without making new API calls
-      const weatherPromise = getWeather(weatherPoints);
+      const weatherPromise = getWeather(calculatedWeatherPoints);
       const timeoutPromise = new Promise((_, reject) => 
         setTimeout(() => reject(new Error('Weather request timed out after 30 seconds')), 30000)
       );
@@ -257,41 +259,41 @@ export default function App() {
    * Note: hourlyData only contains weather for the 30-min interval points we fetched
    */
   const extractWeatherForEstimatedTimes = (hourlyData, arrivalTimes) => {
-    if (!hourlyData || hourlyData.length === 0) {
+    if (!hourlyData || hourlyData.length === 0 || !weatherPoints || weatherPoints.length === 0) {
       return [];
     }
 
     try {
-      // hourlyData only has weather for the 30-min interval points we fetched
-      // arrivalTimes has times for ALL route points
-      // We need to map weather data to the corresponding route points
+      // hourlyData has weather for the 30-min interval points (weatherPoints)
+      // We need to match each weather point to its corresponding route coordinate and arrival time
       
-      // Create a map of weather data by coordinates (for quick lookup)
-      const weatherMap = new Map();
-      hourlyData.forEach((pointData) => {
-        const key = `${pointData.lat.toFixed(4)},${pointData.lon.toFixed(4)}`;
-        weatherMap.set(key, pointData);
+      // Create a map of route coordinates for quick lookup
+      const routeCoordMap = new Map();
+      routeCoordinates.forEach((coord, index) => {
+        const key = `${coord.lat.toFixed(4)},${coord.lon.toFixed(4)}`;
+        routeCoordMap.set(key, { coord, index });
       });
 
-      // For each route coordinate, find matching weather data and calculate arrival time
-      return routeCoordinates.map((routePoint, routeIndex) => {
-        const key = `${routePoint.lat.toFixed(4)},${routePoint.lon.toFixed(4)}`;
-        const pointData = weatherMap.get(key);
-        
-        // If this route point doesn't have weather data, skip it (it's not a 30-min interval point)
-        if (!pointData) {
-          return null;
-        }
-
-        // Find the arrival time for this route point
-        const arrivalInfo = arrivalTimes[routeIndex];
-        if (!arrivalInfo) {
-          return null;
-        }
-
+      // Process each weather point we fetched
+      return hourlyData.map((pointData, weatherIndex) => {
         const { lat, lon, hourlyForecasts } = pointData;
         if (!hourlyForecasts) {
           console.warn('Missing hourlyForecasts for point:', lat, lon);
+          return null;
+        }
+
+        // Find the corresponding route coordinate
+        const key = `${lat.toFixed(4)},${lon.toFixed(4)}`;
+        const routeInfo = routeCoordMap.get(key);
+        
+        if (!routeInfo) {
+          console.warn(`Could not find route coordinate for weather point: ${lat},${lon}`);
+          return null;
+        }
+
+        const routeIndex = routeInfo.index;
+        const arrivalInfo = arrivalTimes[routeIndex];
+        if (!arrivalInfo) {
           return null;
         }
         const { lat, lon, hourlyForecasts } = pointData;
