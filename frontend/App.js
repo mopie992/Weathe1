@@ -268,10 +268,18 @@ export default function App() {
       // We need to match each weather point to its corresponding route coordinate and arrival time
       
       // Create a map of route coordinates for quick lookup
+      // Use a more tolerant matching approach since coordinates might have slight differences
       const routeCoordMap = new Map();
       routeCoordinates.forEach((coord, index) => {
-        const key = `${coord.lat.toFixed(4)},${coord.lon.toFixed(4)}`;
-        routeCoordMap.set(key, { coord, index });
+        // Store multiple precision levels for matching
+        const lat = typeof coord.lat === 'number' ? coord.lat : parseFloat(coord.lat);
+        const lon = typeof coord.lon === 'number' ? coord.lon : parseFloat(coord.lon);
+        const key4 = `${lat.toFixed(4)},${lon.toFixed(4)}`;
+        const key3 = `${lat.toFixed(3)},${lon.toFixed(3)}`;
+        const key2 = `${lat.toFixed(2)},${lon.toFixed(2)}`;
+        routeCoordMap.set(key4, { coord, index });
+        routeCoordMap.set(key3, { coord, index });
+        routeCoordMap.set(key2, { coord, index });
       });
 
       // Process each weather point we fetched
@@ -282,9 +290,40 @@ export default function App() {
           return null;
         }
 
-        // Find the corresponding route coordinate
-        const key = `${lat.toFixed(4)},${lon.toFixed(4)}`;
-        const routeInfo = routeCoordMap.get(key);
+        // Try to find the corresponding route coordinate with multiple precision levels
+        let routeInfo = null;
+        const precisions = [4, 3, 2];
+        for (const prec of precisions) {
+          const key = `${lat.toFixed(prec)},${lon.toFixed(prec)}`;
+          routeInfo = routeCoordMap.get(key);
+          if (routeInfo) {
+            console.log(`Matched weather point ${lat},${lon} to route at precision ${prec}`);
+            break;
+          }
+        }
+        
+        // If still not found, try finding the closest route point by distance
+        if (!routeInfo) {
+          let minDistance = Infinity;
+          let closestIndex = -1;
+          routeCoordinates.forEach((routeCoord, routeIndex) => {
+            const routeLat = typeof routeCoord.lat === 'number' ? routeCoord.lat : parseFloat(routeCoord.lat);
+            const routeLon = typeof routeCoord.lon === 'number' ? routeCoord.lon : parseFloat(routeCoord.lon);
+            // Calculate distance in degrees (simple approximation)
+            const distance = Math.sqrt(
+              Math.pow(lat - routeLat, 2) + Math.pow(lon - routeLon, 2)
+            );
+            if (distance < minDistance && distance < 0.01) { // Within ~1km
+              minDistance = distance;
+              closestIndex = routeIndex;
+            }
+          });
+          
+          if (closestIndex >= 0) {
+            routeInfo = { coord: routeCoordinates[closestIndex], index: closestIndex };
+            console.log(`Matched weather point ${lat},${lon} to closest route point (distance: ${minDistance.toFixed(6)})`);
+          }
+        }
         
         if (!routeInfo) {
           console.warn(`Could not find route coordinate for weather point: ${lat},${lon}`);
