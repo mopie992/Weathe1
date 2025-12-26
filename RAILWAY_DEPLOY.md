@@ -38,7 +38,7 @@ railway up
 ## Environment Variables
 
 **Go to your service → Variables tab** and add:
-- `MAPBOX_TOKEN` = `[REDACTED_MAPBOX_TOKEN]`
+- `MAPBOX_TOKEN` = `your_mapbox_token_here`
 - `OPENWEATHER_KEY` = `your_openweather_key_here`
 
 ## Alternative: Deploy Backend Folder Only
