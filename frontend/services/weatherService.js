@@ -20,7 +20,7 @@ export async function getWeather(coordinates) {
       params: {
         coordinates: JSON.stringify(coordinates)
       },
-      timeout: 60000 // 60 second timeout (weather API can be slow with many points)
+      timeout: 120000 // 120 second timeout (weather API can be slow with many points for long trips)
     });
 
     return response.data;
