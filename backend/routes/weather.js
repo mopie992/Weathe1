@@ -348,6 +348,14 @@ router.get('/', async (req, res) => {
         
         if (finalHourlyLength === 0) {
           console.error(`🚨 ERROR: Returning empty hourly array for ${lat},${lon}!`);
+          console.error(`🚨 Debug info:`, {
+            hasCurrent: !!hourlyForecasts.current,
+            hasHourly: !!hourlyForecasts.hourly,
+            hourlyIsArray: Array.isArray(hourlyForecasts.hourly),
+            hourlyType: typeof hourlyForecasts.hourly
+          });
+        } else {
+          console.log(`✅ Successfully returning ${finalHourlyLength} hourly forecasts for ${lat},${lon}`);
         }
         
         return {
