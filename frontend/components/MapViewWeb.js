@@ -3,7 +3,11 @@ import { StyleSheet, View, Platform, Text } from 'react-native';
 
 // Mapbox GL JS for web - load from CDN
 // Get token from environment variable (set in .env or Railway)
-const MAPBOX_TOKEN = process.env.EXPO_PUBLIC_MAPBOX_TOKEN || '';
+// For Expo, environment variables are available at build time
+// TEMPORARY: Fallback token (should be removed after .env is working)
+const MAPBOX_TOKEN = process.env.EXPO_PUBLIC_MAPBOX_TOKEN || 
+  (typeof window !== 'undefined' && window.EXPO_PUBLIC_MAPBOX_TOKEN) ||
+  'pk.eyJ1Ijoia3BhcmtlcjcyIiwiYSI6ImNtams4OTZhaTBybTEzZm9wdmJzejlkbDQifQ.pnMrqfJ4qv6_n9fKb8eNfQ';
 
 const MapViewWeb = ({ currentLocation, routeCoordinates, weatherData }) => {
   const mapContainer = useRef(null);
@@ -57,9 +61,18 @@ const MapViewWeb = ({ currentLocation, routeCoordinates, weatherData }) => {
     if (typeof window === 'undefined' || !mapboxgl || !currentLocation || loading) return;
 
     if (!map.current && mapContainer.current) {
-      const token = MAPBOX_TOKEN || process.env.EXPO_PUBLIC_MAPBOX_TOKEN;
+      // Try multiple ways to get the token (Expo loads env vars at build time)
+      const token = MAPBOX_TOKEN || 
+                    process.env.EXPO_PUBLIC_MAPBOX_TOKEN || 
+                    (typeof window !== 'undefined' && window.EXPO_PUBLIC_MAPBOX_TOKEN);
+      
       if (!token) {
         console.error('Mapbox token not found! Set EXPO_PUBLIC_MAPBOX_TOKEN environment variable.');
+        console.log('Available env vars:', {
+          MAPBOX_TOKEN: MAPBOX_TOKEN ? 'set' : 'not set',
+          EXPO_PUBLIC_MAPBOX_TOKEN: process.env.EXPO_PUBLIC_MAPBOX_TOKEN ? 'set' : 'not set',
+          allEnvKeys: Object.keys(process.env).filter(k => k.includes('MAPBOX'))
+        });
         return;
       }
       mapboxgl.accessToken = token;
