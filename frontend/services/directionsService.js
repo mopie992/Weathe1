@@ -2,10 +2,14 @@ import axios from 'axios';
 
 // API URL - automatically switches between local and production
 // Set EXPO_PUBLIC_API_URL environment variable for production
+// For local dev: use localhost:3000
+// For production: use Railway URL
 const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || 
   (typeof window !== 'undefined' 
-    ? 'https://weathe1-production.up.railway.app/api'  // Web always uses Railway
-    : (__DEV__ ? 'http://172.16.0.45:3000/api' : 'https://weathe1-production.up.railway.app/api'));
+    ? (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+        ? 'http://localhost:3000/api'  // Local web development
+        : 'https://weathe1-production.up.railway.app/api')  // Production web
+    : (__DEV__ ? 'http://localhost:3000/api' : 'https://weathe1-production.up.railway.app/api'));  // Mobile: local or production
 
 /**
  * Fetch driving route from backend
