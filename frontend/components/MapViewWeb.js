@@ -1,18 +1,27 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { StyleSheet, View, Platform, Text } from 'react-native';
+import Constants from 'expo-constants';
 
 // Mapbox GL JS for web - load from CDN
 // Get token from environment variable (set in .env or Railway)
-// For Expo web, try multiple sources
-let MAPBOX_TOKEN = '';
-if (typeof window !== 'undefined') {
-  // Try Expo's extra config first (from app.config.js)
-  MAPBOX_TOKEN = window.__EXPO_CONFIG__?.extra?.mapboxToken || 
-                 process.env.EXPO_PUBLIC_MAPBOX_TOKEN ||
-                 '';
-} else {
-  MAPBOX_TOKEN = process.env.EXPO_PUBLIC_MAPBOX_TOKEN || '';
-}
+// Try multiple sources: Expo config, environment variable, or window
+const getMapboxToken = () => {
+  // Try Expo Constants first (from app.config.js)
+  if (Constants.expoConfig?.extra?.mapboxToken) {
+    return Constants.expoConfig.extra.mapboxToken;
+  }
+  // Try process.env (for webpack/build time)
+  if (process.env.EXPO_PUBLIC_MAPBOX_TOKEN) {
+    return process.env.EXPO_PUBLIC_MAPBOX_TOKEN;
+  }
+  // Try window (for runtime)
+  if (typeof window !== 'undefined' && window.EXPO_PUBLIC_MAPBOX_TOKEN) {
+    return window.EXPO_PUBLIC_MAPBOX_TOKEN;
+  }
+  return '';
+};
+
+const MAPBOX_TOKEN = getMapboxToken();
 
 const MapViewWeb = ({ currentLocation, routeCoordinates, weatherData }) => {
   const mapContainer = useRef(null);
