@@ -1,12 +1,13 @@
-require('dotenv').config();
+// Load environment variables
+const env = require('./load-env');
 
 // Log to verify .env is loaded (only in development)
 if (process.env.NODE_ENV !== 'production') {
   console.log('Environment variables loaded:', {
-    hasMapboxToken: !!process.env.EXPO_PUBLIC_MAPBOX_TOKEN,
-    hasApiUrl: !!process.env.EXPO_PUBLIC_API_URL,
-    mapboxTokenPreview: process.env.EXPO_PUBLIC_MAPBOX_TOKEN ? 
-      process.env.EXPO_PUBLIC_MAPBOX_TOKEN.substring(0, 20) + '...' : 'not set'
+    hasMapboxToken: !!env.EXPO_PUBLIC_MAPBOX_TOKEN,
+    hasApiUrl: !!env.EXPO_PUBLIC_API_URL,
+    mapboxTokenPreview: env.EXPO_PUBLIC_MAPBOX_TOKEN ? 
+      env.EXPO_PUBLIC_MAPBOX_TOKEN.substring(0, 20) + '...' : 'not set'
   });
 }
 
@@ -45,8 +46,8 @@ module.exports = {
     },
     extra: {
       // Make environment variables available to the app
-      mapboxToken: process.env.EXPO_PUBLIC_MAPBOX_TOKEN || '',
-      apiUrl: process.env.EXPO_PUBLIC_API_URL || 'https://weathe1-production.up.railway.app/api'
+      mapboxToken: env.EXPO_PUBLIC_MAPBOX_TOKEN,
+      apiUrl: env.EXPO_PUBLIC_API_URL
     }
   }
 };
