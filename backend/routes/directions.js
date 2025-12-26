@@ -71,8 +71,42 @@ router.get('/', async (req, res) => {
       return { lat, lon };
     });
 
-    // Sample coordinates (every 5-10 km)
-    const sampledCoordinates = sampleCoordinates(normalizedCoordinates, 5); // 5 km intervals
+    // Calculate route distance to determine sampling interval
+    const routeDistanceKm = route.distance / 1000; // Convert meters to km
+    
+    // Adjust sampling interval based on route length:
+    // Short routes (< 50km): 5km intervals
+    // Medium routes (50-200km): 10km intervals  
+    // Long routes (200-500km): 20km intervals
+    // Very long routes (> 500km): 30km intervals
+    let samplingInterval = 5;
+    if (routeDistanceKm > 500) {
+      samplingInterval = 30;
+    } else if (routeDistanceKm > 200) {
+      samplingInterval = 20;
+    } else if (routeDistanceKm > 50) {
+      samplingInterval = 10;
+    }
+    
+    console.log(`Route distance: ${routeDistanceKm.toFixed(1)}km, using ${samplingInterval}km sampling interval`);
+    
+    // Sample coordinates
+    let sampledCoordinates = sampleCoordinates(normalizedCoordinates, samplingInterval);
+    
+    // CRITICAL: Limit to maximum 50 points to prevent API overload
+    // This ensures we don't make too many weather API calls
+    const MAX_WEATHER_POINTS = 50;
+    if (sampledCoordinates.length > MAX_WEATHER_POINTS) {
+      console.warn(`⚠️ Route has ${sampledCoordinates.length} points, limiting to ${MAX_WEATHER_POINTS} for weather API`);
+      // Evenly sample down to MAX_WEATHER_POINTS
+      const step = Math.floor(sampledCoordinates.length / MAX_WEATHER_POINTS);
+      sampledCoordinates = sampledCoordinates.filter((_, index) => 
+        index === 0 || // Always include first
+        index === sampledCoordinates.length - 1 || // Always include last
+        index % step === 0 // Sample evenly
+      );
+      console.log(`Reduced to ${sampledCoordinates.length} points for weather fetching`);
+    }
     
     console.log(`📍 Directions: Returning ${sampledCoordinates.length} normalized coordinates`);
 

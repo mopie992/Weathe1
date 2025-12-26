@@ -88,6 +88,20 @@ router.get('/', async (req, res) => {
       });
     }
 
+    // Limit to maximum 50 coordinates to prevent API overload and timeouts
+    const MAX_COORDINATES = 50;
+    if (coordsArray.length > MAX_COORDINATES) {
+      console.warn(`⚠️ Request has ${coordsArray.length} coordinates, limiting to ${MAX_COORDINATES}`);
+      // Keep first, last, and evenly sample the rest
+      const step = Math.floor(coordsArray.length / MAX_COORDINATES);
+      coordsArray = coordsArray.filter((_, index) => 
+        index === 0 || 
+        index === coordsArray.length - 1 || 
+        index % step === 0
+      );
+      console.log(`Reduced to ${coordsArray.length} coordinates for weather fetching`);
+    }
+
     const weatherData = [];
 
     // Fetch weather for all coordinates in parallel (much faster!)
