@@ -130,20 +130,25 @@ router.get('/', async (req, res) => {
 
       // Cache key: lat/lon only (not timestamp, since we fetch all hours)
       const cacheKey = `weather:${lat}:${lon}`;
-      let hourlyForecasts = await getCachedWeather(cacheKey);
-
-      // Don't use cache if hourly array is empty (means previous fetch failed)
-      if (hourlyForecasts) {
-        const hourlyLength = hourlyForecasts.hourly?.length || 0;
+      let hourlyForecasts = null;
+      
+      // Only check cache if clearCache is not requested
+      if (clearCache !== 'true') {
+        hourlyForecasts = await getCachedWeather(cacheKey);
+        const hourlyLength = hourlyForecasts?.hourly?.length || 0;
         console.log(`🔍 Cache check for ${lat},${lon}: hourlyLength=${hourlyLength}`);
-        if (hourlyLength === 0) {
-          console.log(`⚠️ Cache has empty hourly array for ${lat},${lon}, fetching fresh data`);
-          hourlyForecasts = null; // Force fresh fetch
-        } else {
+
+        // ALWAYS refetch if hourly array is empty (even if cached)
+        if (hourlyForecasts && hourlyLength === 0) {
+          console.warn(`⚠️ Cache has empty hourly array for ${lat},${lon}, fetching fresh data`);
+          hourlyForecasts = null; // Force refetch
+        } else if (hourlyForecasts && hourlyLength > 0) {
           console.log(`✅ Using cached data for ${lat},${lon} with ${hourlyLength} hourly forecasts`);
+        } else {
+          console.log(`📥 No cache found for ${lat},${lon}, will fetch fresh data`);
         }
       } else {
-        console.log(`📥 No cache found for ${lat},${lon}, will fetch fresh data`);
+        console.log(`🗑️ Cache clear requested for ${lat},${lon}, fetching fresh data`);
       }
 
       if (!hourlyForecasts) {
