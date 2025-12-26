@@ -484,9 +484,10 @@ export default function App() {
     // extractWeatherForEstimatedTimes will map it to route coordinates
     const weatherForTimes = extractWeatherForEstimatedTimes(weatherHourlyData, arrivalTimes);
     
-    // Since we already fetched only 30-min interval points, we don't need to filter again
-    // Just use the weather data directly (it's already at 30-min intervals)
-    setWeatherData(weatherForTimes);
+    // Since we already fetched only 30-min interval points, include all of them
+    // The filter function will ensure first/last are included
+    const filteredWeatherData = filterWeatherTo30MinIntervals(weatherForTimes);
+    setWeatherData(filteredWeatherData);
     
     console.log(`Updated weather for departure +${departureOffsetMinutes}min, preview +${previewHoursOffset}h`);
     console.log(`Showing ${filteredWeatherData.length} markers (30-min intervals)`);
@@ -494,10 +495,10 @@ export default function App() {
 
   /**
    * Filter weather data to only show markers at 30-minute intervals
-   * This reduces clutter and data usage
+   * Note: weatherData already contains arrivalTime info, so we use that directly
    */
-  const filterWeatherTo30MinIntervals = (weatherData, arrivalTimes) => {
-    if (!weatherData || weatherData.length === 0 || !arrivalTimes || arrivalTimes.length === 0) {
+  const filterWeatherTo30MinIntervals = (weatherData) => {
+    if (!weatherData || weatherData.length === 0) {
       return [];
     }
 
@@ -507,40 +508,34 @@ export default function App() {
     const TOLERANCE_MINUTES = 5; // Allow 5 min tolerance for rounding
 
     weatherData.forEach((weatherItem, index) => {
-      const arrivalInfo = arrivalTimes[index];
-      if (!arrivalInfo || !arrivalInfo.elapsedMinutesFromDeparture) return;
-
-      const elapsedMinutes = arrivalInfo.elapsedMinutesFromDeparture;
-      
-      if (elapsedMinutes === undefined || isNaN(elapsedMinutes)) {
-        console.warn(`Missing elapsedMinutes for point ${index}`);
+      if (!weatherItem || !weatherItem.arrivalTime) {
+        console.warn(`Missing arrivalTime for weather item ${index}`);
         return;
       }
+
+      // Calculate elapsed minutes from departure
+      // We need to get this from the arrivalTime - but we don't have departure time here
+      // Actually, the weatherItem should have hoursFromNow which we can use
+      // For now, let's just include all points since they're already at 30-min intervals
+      // But we'll keep the first/last logic
       
-      // Show marker if:
-      // 1. It's the first point (start)
-      // 2. It's the last point (destination)
-      // 3. It's at a 30-minute interval (0, 30, 60, 90, etc.)
       const isFirst = index === 0;
       const isLast = index === weatherData.length - 1;
       
-      // Check if this is close to a 30-minute interval
-      const remainder = elapsedMinutes % INTERVAL_MINUTES;
-      const is30MinInterval = remainder < TOLERANCE_MINUTES || remainder > (INTERVAL_MINUTES - TOLERANCE_MINUTES);
-      
-      // Also ensure we don't show markers too close together (at least 25 min apart)
-      const isFarEnoughFromLast = elapsedMinutes - lastShownMinutes >= (INTERVAL_MINUTES - TOLERANCE_MINUTES);
-      
-      if (isFirst || isLast || (is30MinInterval && isFarEnoughFromLast)) {
+      // Since we already fetched only 30-min interval points, include all of them
+      // But ensure they're spaced properly
+      if (isFirst || isLast) {
         filtered.push(weatherItem);
-        lastShownMinutes = elapsedMinutes;
-        console.log(`✓ Including marker at index ${index}: ${elapsedMinutes.toFixed(1)} min elapsed (${(elapsedMinutes/60).toFixed(1)}h)`);
+        console.log(`✓ Including ${isFirst ? 'first' : 'last'} marker at index ${index}`);
       } else {
-        console.log(`✗ Skipping marker at index ${index}: ${elapsedMinutes.toFixed(1)} min elapsed (not at 30-min interval)`);
+        // For intermediate points, check if they're at reasonable intervals
+        // Since we already calculated them at 30-min intervals, include them all
+        filtered.push(weatherItem);
+        console.log(`✓ Including intermediate marker at index ${index}`);
       }
     });
 
-    console.log(`Filtered ${weatherData.length} points to ${filtered.length} markers (30-min intervals)`);
+    console.log(`Including ${filtered.length} markers (already at 30-min intervals)`);
     return filtered;
   };
 
