@@ -93,12 +93,15 @@ export default function App() {
       setRouteDuration(route.duration); // Duration in seconds
       setRouteDistance(route.distance); // Distance in meters
 
+      // CRITICAL: Only fetch weather for points we'll actually display (every 30 minutes)
+      // This dramatically reduces API calls for long trips
+      const weatherPoints = calculateWeatherPoints(route.coordinates, route.duration);
+      console.log(`Route: ${route.coordinates.length} total points, ${route.duration/60} min duration`);
+      console.log(`Fetching weather for ${weatherPoints.length} points (30-min intervals only)...`);
+      
       // IMPORTANT: Fetch weather ONCE for all hours (0-48) - this is the ONLY API call
       // The slider will later switch between this cached data without making new API calls
-      // Use Promise.race to timeout after 60 seconds
-      console.log('Fetching weather for', route.coordinates.length, 'points (ONE-TIME API call)...');
-      
-      const weatherPromise = getWeather(route.coordinates);
+      const weatherPromise = getWeather(weatherPoints);
       const timeoutPromise = new Promise((_, reject) => 
         setTimeout(() => reject(new Error('Weather request timed out after 30 seconds')), 30000)
       );
@@ -153,6 +156,58 @@ export default function App() {
     // Otherwise, would need geocoding API
     // For now, return a default or show error
     throw new Error('Please enter destination as "latitude,longitude" or implement geocoding');
+  };
+
+  /**
+   * Calculate which route points we need weather for (every 30 minutes)
+   * This reduces API calls by only fetching weather for displayed markers
+   */
+  const calculateWeatherPoints = (routeCoordinates, routeDurationSeconds) => {
+    if (!routeCoordinates || routeCoordinates.length === 0 || !routeDurationSeconds) {
+      return [];
+    }
+
+    const totalDurationMinutes = routeDurationSeconds / 60;
+    const INTERVAL_MINUTES = 30;
+    const numIntervals = Math.ceil(totalDurationMinutes / INTERVAL_MINUTES);
+    
+    // Calculate which points we need (every 30 minutes)
+    const weatherPoints = [];
+    const numPoints = routeCoordinates.length;
+
+    // Always include first point
+    weatherPoints.push(routeCoordinates[0]);
+
+    // Add points at 30-minute intervals
+    for (let i = 1; i <= numIntervals; i++) {
+      const targetMinutes = i * INTERVAL_MINUTES;
+      if (targetMinutes >= totalDurationMinutes) {
+        // Don't go beyond route duration
+        break;
+      }
+      
+      // Calculate which route point corresponds to this time
+      const progress = targetMinutes / totalDurationMinutes;
+      const pointIndex = Math.floor(progress * (numPoints - 1));
+      
+      // Make sure we don't duplicate points
+      if (pointIndex > 0 && pointIndex < numPoints) {
+        const point = routeCoordinates[pointIndex];
+        // Check if we already have this point
+        if (!weatherPoints.find(p => p.lat === point.lat && p.lon === point.lon)) {
+          weatherPoints.push(point);
+        }
+      }
+    }
+
+    // Always include last point
+    const lastPoint = routeCoordinates[routeCoordinates.length - 1];
+    if (!weatherPoints.find(p => p.lat === lastPoint.lat && p.lon === lastPoint.lon)) {
+      weatherPoints.push(lastPoint);
+    }
+
+    console.log(`Calculated ${weatherPoints.length} weather points for ${totalDurationMinutes.toFixed(1)} min trip (30-min intervals)`);
+    return weatherPoints;
   };
 
   /**
