@@ -484,10 +484,9 @@ export default function App() {
     // extractWeatherForEstimatedTimes will map it to route coordinates
     const weatherForTimes = extractWeatherForEstimatedTimes(weatherHourlyData, arrivalTimes);
     
-    // Filter to only show markers every 30 minutes along the trip
-    // Since we already fetched only 30-min points, this mainly validates spacing
-    const filteredWeatherData = filterWeatherTo30MinIntervals(weatherForTimes, arrivalTimes);
-    setWeatherData(filteredWeatherData);
+    // Since we already fetched only 30-min interval points, we don't need to filter again
+    // Just use the weather data directly (it's already at 30-min intervals)
+    setWeatherData(weatherForTimes);
     
     console.log(`Updated weather for departure +${departureOffsetMinutes}min, preview +${previewHoursOffset}h`);
     console.log(`Showing ${filteredWeatherData.length} markers (30-min intervals)`);
