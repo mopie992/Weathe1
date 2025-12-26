@@ -398,9 +398,48 @@ export default function App() {
 
     // Extract weather for estimated arrival times
     const weatherForTimes = extractWeatherForEstimatedTimes(weatherHourlyData, arrivalTimes);
-    setWeatherData(weatherForTimes);
+    
+    // Filter to only show markers every 30 minutes along the trip
+    const filteredWeatherData = filterWeatherTo30MinIntervals(weatherForTimes, arrivalTimes);
+    setWeatherData(filteredWeatherData);
     
     console.log(`Updated weather for departure +${departureOffsetMinutes}min, preview +${previewHoursOffset}h`);
+    console.log(`Showing ${filteredWeatherData.length} markers (30-min intervals)`);
+  };
+
+  /**
+   * Filter weather data to only show markers at 30-minute intervals
+   * This reduces clutter and data usage
+   */
+  const filterWeatherTo30MinIntervals = (weatherData, arrivalTimes) => {
+    if (!weatherData || weatherData.length === 0 || !arrivalTimes || arrivalTimes.length === 0) {
+      return [];
+    }
+
+    const filtered = [];
+    let lastShownMinutes = -Infinity;
+
+    weatherData.forEach((weatherItem, index) => {
+      const arrivalInfo = arrivalTimes[index];
+      if (!arrivalInfo) return;
+
+      const elapsedMinutes = arrivalInfo.elapsedMinutesFromDeparture;
+      
+      // Show marker if:
+      // 1. It's the first point (start)
+      // 2. It's the last point (destination)
+      // 3. It's at a 30-minute interval (or close to it, within 5 min tolerance)
+      const isFirst = index === 0;
+      const isLast = index === weatherData.length - 1;
+      const is30MinInterval = Math.abs(elapsedMinutes % 30) < 5 || elapsedMinutes - lastShownMinutes >= 25;
+      
+      if (isFirst || isLast || is30MinInterval) {
+        filtered.push(weatherItem);
+        lastShownMinutes = elapsedMinutes;
+      }
+    });
+
+    return filtered;
   };
 
   // Update weather when departure time, route, or preview slider changes

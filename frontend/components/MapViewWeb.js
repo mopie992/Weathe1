@@ -241,24 +241,42 @@ const MapViewWeb = ({ currentLocation, routeCoordinates, weatherData }) => {
         }
 
         if (typeof document !== 'undefined') {
+          // Format estimated arrival time
+          const formatArrivalTime = (arrivalTime) => {
+            if (!arrivalTime) return '';
+            const time = new Date(arrivalTime);
+            const hours = time.getHours();
+            const minutes = time.getMinutes();
+            const ampm = hours >= 12 ? 'PM' : 'AM';
+            const displayHours = hours % 12 || 12;
+            const displayMinutes = minutes.toString().padStart(2, '0');
+            return `${displayHours}:${displayMinutes} ${ampm}`;
+          };
+
           const el = document.createElement('div');
           el.className = 'weather-marker';
-          el.style.width = '50px';
-          el.style.height = '50px';
-          el.style.borderRadius = '25px';
+          el.style.width = '60px';
+          el.style.height = 'auto';
+          el.style.minHeight = '70px';
+          el.style.borderRadius = '8px';
           el.style.backgroundColor = color;
           el.style.border = '2px solid #fff';
           el.style.display = 'flex';
           el.style.flexDirection = 'column';
           el.style.alignItems = 'center';
           el.style.justifyContent = 'center';
-          el.style.fontSize = '16px';
+          el.style.fontSize = '14px';
           el.style.cursor = 'pointer';
           el.style.zIndex = '1000'; // Ensure markers are above route line
           el.style.boxShadow = '0 2px 4px rgba(0,0,0,0.3)'; // Make markers more visible
+          el.style.padding = '6px 4px';
+          el.style.boxSizing = 'border-box';
           el.innerHTML = `
-            <div>${icon}</div>
-            <div style="font-size: 10px; font-weight: bold; margin-top: 2px;">${Math.round(weather.temp)}°</div>
+            <div style="font-size: 18px; margin-bottom: 2px;">${icon}</div>
+            <div style="font-size: 12px; font-weight: bold; margin-bottom: 2px;">${Math.round(weather.temp)}°</div>
+            <div style="font-size: 9px; color: #fff; text-align: center; line-height: 1.1; opacity: 0.9;">
+              ${item.arrivalTime ? formatArrivalTime(item.arrivalTime) : 'est'}
+            </div>
           `;
 
           const marker = new mapboxgl.Marker(el)
