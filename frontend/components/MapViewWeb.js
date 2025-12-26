@@ -201,9 +201,17 @@ const MapViewWeb = ({ currentLocation, routeCoordinates, weatherData }) => {
     try {
       console.log('Adding weather markers for', weatherData.length, 'points');
       
-      // Remove existing markers
-      markersRef.current.forEach(marker => marker.remove());
-      markersRef.current = [];
+      // Remove existing markers completely
+      if (markersRef.current && markersRef.current.length > 0) {
+        markersRef.current.forEach(marker => {
+          try {
+            marker.remove();
+          } catch (e) {
+            console.warn('Error removing marker:', e);
+          }
+        });
+        markersRef.current = [];
+      }
 
       // Add weather markers
       weatherData.forEach((item, index) => {
