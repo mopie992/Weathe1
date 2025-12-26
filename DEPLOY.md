@@ -9,7 +9,7 @@
 4. Select your repo: `mopie992/Weathe1`
 5. Select the `backend` folder
 6. Add environment variables:
-   - `MAPBOX_TOKEN=pk.eyJ1Ijoia3BhcmtlcjcyIiwiYSI6ImNtams4OTZhaTBybTEzZm9wdmJzejlkbDQifQ.pnMrqfJ4qv6_n9fKb8eNfQ`
+   - `MAPBOX_TOKEN=your_mapbox_token_here`
    - `OPENWEATHER_KEY=your_openweather_key_here`
    - `PORT` (auto-set by Railway)
 7. Railway will auto-deploy and give you a URL like: `https://your-app.railway.app`
