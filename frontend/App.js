@@ -315,26 +315,23 @@ export default function App() {
           console.log(`Point ${weatherIndex}: Using current weather (arrival in ${minutesFromNow.toFixed(0)}min)`);
         } else {
           // More than 1 hour away - map to 3-hour interval index
-          // OpenWeather gives 3-hour intervals, so:
-          // 1-3 hours = index 0, 4-6 hours = index 1, etc.
-          // But we need to account for the fact that forecast[0] is for 3 hours from now
-          // So: 1-3h = index 0, 4-6h = index 1, 7-9h = index 2, etc.
-          const intervalIndex = Math.floor((hoursFromNow - 1) / 3);
+          // OpenWeather 5-day forecast returns data in 3-hour intervals
+          // The first forecast item (index 0) is typically 3 hours from now
+          // So: 0-3h = current, 3-6h = index 0, 6-9h = index 1, 9-12h = index 2, etc.
+          // Formula: intervalIndex = floor((hoursFromNow - 3) / 3), clamped to valid range
+          let intervalIndex = Math.floor((hoursFromNow - 3) / 3);
+          intervalIndex = Math.max(0, intervalIndex); // Don't allow negative
           
-          console.log(`Point ${weatherIndex}: hoursFromNow=${hoursFromNow.toFixed(2)}, intervalIndex=${intervalIndex}, hourlyLength=${hourlyForecasts.hourly?.length || 0}`);
+          console.log(`Point ${weatherIndex}: hoursFromNow=${hoursFromNow.toFixed(2)}, calculated intervalIndex=${intervalIndex}, hourlyLength=${hourlyForecasts.hourly?.length || 0}`);
           
           if (hourlyForecasts.hourly && Array.isArray(hourlyForecasts.hourly) && hourlyForecasts.hourly.length > 0) {
-            if (intervalIndex >= 0 && intervalIndex < hourlyForecasts.hourly.length) {
+            if (intervalIndex < hourlyForecasts.hourly.length) {
               weather = hourlyForecasts.hourly[intervalIndex];
-              console.log(`Point ${weatherIndex}: Using forecast interval ${intervalIndex}/${hourlyForecasts.hourly.length - 1} (arrival in ${hoursFromNow.toFixed(1)}h, temp: ${weather.temp}°C)`);
-            } else if (intervalIndex >= hourlyForecasts.hourly.length) {
+              console.log(`Point ${weatherIndex}: Using forecast interval ${intervalIndex}/${hourlyForecasts.hourly.length - 1} (arrival in ${hoursFromNow.toFixed(1)}h, temp: ${weather.temp}°C, condition: ${weather.weather?.main || 'N/A'})`);
+            } else {
               // Beyond forecast range, use last available
               weather = hourlyForecasts.hourly[hourlyForecasts.hourly.length - 1];
               console.log(`Point ${weatherIndex}: Beyond forecast (${intervalIndex} >= ${hourlyForecasts.hourly.length}), using last available (arrival in ${hoursFromNow.toFixed(1)}h, temp: ${weather.temp}°C)`);
-            } else {
-              // Negative index (shouldn't happen, but fallback)
-              weather = hourlyForecasts.current;
-              console.log(`Point ${weatherIndex}: Invalid interval index ${intervalIndex}, using current`);
             }
           } else {
             // No hourly data, use current
