@@ -14,14 +14,24 @@ const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL ||
  * @param {Array} coordinates - Array of {lat, lon} objects
  * @returns {Promise<Array>} Weather data array with hourly forecasts
  */
-export async function getWeather(coordinates) {
+export async function getWeather(coordinates, clearCache = false) {
   try {
     const response = await axios.get(`${API_BASE_URL}/weather`, {
       params: {
-        coordinates: JSON.stringify(coordinates)
+        coordinates: JSON.stringify(coordinates),
+        clearCache: clearCache ? 'true' : undefined
       },
       timeout: 120000 // 120 second timeout (weather API can be slow with many points for long trips)
     });
+
+    // Log response to debug empty arrays
+    if (response.data && Array.isArray(response.data)) {
+      const emptyCount = response.data.filter(item => !item.hourlyForecasts?.hourly || item.hourlyForecasts.hourly.length === 0).length;
+      if (emptyCount > 0) {
+        console.warn(`⚠️ Received ${emptyCount} points with empty hourly arrays out of ${response.data.length} total`);
+      }
+      console.log(`Weather response: ${response.data.length} points, ${response.data.filter(item => item.hourlyForecasts?.hourly?.length > 0).length} with hourly data`);
+    }
 
     return response.data;
   } catch (error) {

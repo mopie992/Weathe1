@@ -105,7 +105,8 @@ export default function App() {
       
       // IMPORTANT: Fetch weather ONCE for all hours (0-48) - this is the ONLY API call
       // The slider will later switch between this cached data without making new API calls
-      const weatherPromise = getWeather(calculatedWeatherPoints);
+      // Force clear cache to ensure fresh data (remove this after debugging)
+      const weatherPromise = getWeather(calculatedWeatherPoints, true); // true = clearCache
       const timeoutPromise = new Promise((_, reject) => 
         setTimeout(() => reject(new Error('Weather request timed out after 30 seconds')), 30000)
       );
