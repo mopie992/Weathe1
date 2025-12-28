@@ -25,16 +25,22 @@ Then press `w` to open in browser, or visit the URL shown (usually `http://local
 
 ### Backend (`backend/.env`)
 ```
-MAPBOX_TOKEN=pk.eyJ1Ijoia3BhcmtlcjcyIiwiYSI6ImNtam1lM2RteTFibnMzZG95cTNkcmp6cG4ifQ.JVhbzl61PK0gbQUscHhuVw
-OPENWEATHER_KEY=3a4c4264b5f92df345d7f177b64cf469
+MAPBOX_TOKEN=your_mapbox_token_here
+OPENWEATHER_KEY=your_openweather_key_here
 PORT=3000
 ```
 
+**⚠️ IMPORTANT**: Replace `your_mapbox_token_here` and `your_openweather_key_here` with your actual API keys.
+- Get Mapbox token: https://account.mapbox.com/
+- Get OpenWeather key: https://home.openweathermap.org/api_keys
+
 ### Frontend (`frontend/.env`)
 ```
-EXPO_PUBLIC_MAPBOX_TOKEN=pk.eyJ1Ijoia3BhcmtlcjcyIiwiYSI6ImNtam1lM2RteTFibnMzZG95cTNkcmp6cG4ifQ.JVhbzl61PK0gbQUscHhuVw
+EXPO_PUBLIC_MAPBOX_TOKEN=your_mapbox_token_here
 EXPO_PUBLIC_API_URL=http://localhost:3000/api
 ```
+
+**⚠️ IMPORTANT**: Replace `your_mapbox_token_here` with your actual Mapbox token.
 
 ## Troubleshooting
 
