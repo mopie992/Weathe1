@@ -1,7 +1,7 @@
-# WeatherRoute
+# RoadWeather
 ### GPS Navigation with Real-Time & Forecasted Weather Overlays
 
-WeatherRoute is a cross-platform mobile application that enhances traditional GPS navigation by overlaying **live and future weather conditions** along a selected driving route. A built-in **timeline slider** allows travelers to preview expected weather changes—rain, snow, wind, temperature—at different points in their journey.
+RoadWeather is a cross-platform mobile application that enhances traditional GPS navigation by overlaying **live and future weather conditions** along a selected driving route. A built-in **timeline slider** allows travelers to preview expected weather changes—rain, snow, wind, temperature—at different points in their journey.
 
 This project is designed for incremental build-out using **Cursor**, **ChatGPT**, and **Claude**, with a modular architecture enabling easy extension.
 
@@ -104,7 +104,7 @@ Returns forecasted weather mapped to the coordinates along the route.
 ## 📁 Project Structure
 
 ```
-weatherroute/
+roadweather/
 │
 ├── frontend/
 │   ├── components/
@@ -134,8 +134,8 @@ weatherroute/
 
 ### 1. Clone Repository
 ```bash
-git clone https://github.com/yourusername/weatherroute.git
-cd weatherroute
+git clone https://github.com/yourusername/roadweather.git
+cd roadweather
 ```
 
 ### 2. Backend Setup
@@ -186,7 +186,7 @@ MIT License (or update as needed)
 ## ⚡ Cursor Quick-Start Prompt
 
 ```
-Scaffold the WeatherRoute project using the architecture described in README.md.
+Scaffold the RoadWeather project using the architecture described in README.md.
 Create React Native components for MapView, WeatherOverlay, and TimelineSlider.
 Set up a Node.js backend with /directions and /weather endpoints.
 Integrate Mapbox Directions API and OpenWeather API.

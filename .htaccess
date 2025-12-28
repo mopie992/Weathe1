@@ -1,0 +1,18 @@
+# RoadWeather - Route API requests to Passenger backend
+# Frontend static files are served normally
+# API requests (/api/*) are routed to Passenger Node.js app
+
+# Enable rewrite engine
+RewriteEngine On
+
+# Route /api/* requests to Passenger backend
+# Passenger will handle these through the backend Node.js app
+RewriteCond %{REQUEST_URI} ^/api/
+RewriteRule ^api/(.*)$ - [L]
+
+# For Passenger to work, we need to tell it where the app is
+# This is configured in Dreamhost panel, but we ensure requests reach it
+
+# Serve static files normally (frontend)
+# No rewrite needed - Apache will serve them by default
+
