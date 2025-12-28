@@ -1,7 +1,7 @@
 {
-  "name": "weatherroute-backend",
+  "name": "roadweather-backend",
   "version": "1.0.0",
-  "description": "Backend API for WeatherRoute - GPS navigation with weather overlays",
+  "description": "Backend API for RoadWeather - GPS navigation with weather overlays",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",

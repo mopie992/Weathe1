@@ -2,7 +2,30 @@
 
 Your backend is already live at: `https://weathe1-production.up.railway.app`
 
-## Option 1: Vercel (Recommended - Easiest)
+**Current Setup**: Frontend is deployed to **Dreamhost** at `https://roadweather.app`
+
+## Option 1: Dreamhost (Current Setup)
+
+### Step 1: Build the Web Version
+```bash
+cd frontend
+npm run build:web
+```
+
+This creates a `web-build` folder with all the static files.
+
+### Step 2: Upload to Dreamhost
+1. Use FileZilla or your FTP client
+2. Connect to Dreamhost
+3. Navigate to your website directory
+4. Upload the entire contents of `web-build` folder
+5. Your site will be live at your Dreamhost domain
+
+**Note**: See `DREAMHOST_DEPLOY.md` for detailed Dreamhost setup instructions.
+
+---
+
+## Option 2: Vercel (Alternative - Not Currently Used)
 
 ### Step 1: Install Vercel CLI (if needed)
 ```bash
@@ -26,7 +49,7 @@ vercel
 ```
 Follow the prompts:
 - Link to existing project? No (first time)
-- Project name: weatherroute (or your choice)
+- Project name: roadweather (or your choice)
 - Directory: `./web-build`
 - Override settings? No
 
@@ -46,11 +69,11 @@ Follow the prompts:
 7. Click "Deploy"
 
 ### Step 4: Get Your URL
-Vercel will give you a URL like: `https://weatherroute.vercel.app`
+Vercel will give you a URL like: `https://roadweather.vercel.app`
 
 ---
 
-## Option 2: Netlify
+## Option 3: Netlify (Alternative)
 
 ### Step 1: Build
 ```bash
@@ -74,7 +97,7 @@ In Netlify dashboard → Site settings → Environment variables:
 
 ---
 
-## Option 3: GitHub Pages (Free but requires more setup)
+## Option 4: GitHub Pages (Free but requires more setup)
 
 1. Build: `npx expo export:web`
 2. Copy `web-build` contents to `docs` folder
@@ -96,14 +119,23 @@ In Netlify dashboard → Site settings → Environment variables:
 ## Troubleshooting
 
 **Map not loading?**
-- Check that `EXPO_PUBLIC_MAPBOX_TOKEN` is set in deployment environment variables
+- Check that `EXPO_PUBLIC_MAPBOX_TOKEN` is set in deployment environment variables (for Vercel/Netlify)
+- For Dreamhost, check that token is in frontend `.env` file
 
 **API errors?**
-- Verify backend is running: https://weathe1-production.up.railway.app/health
-- Check that `EXPO_PUBLIC_API_URL` is set correctly
+- Verify backend is running: https://weathe1-production.up.railway.app/api/health
+- Check that `EXPO_PUBLIC_API_URL` is set correctly (for Vercel/Netlify)
+- For Dreamhost, the app auto-detects the backend URL
 
 **Build fails?**
 - Make sure you're in the `frontend` directory
 - Run `npm install` first
 - Check that all dependencies are installed
 
+---
+
+## Current Production Setup
+
+- **Frontend**: Dreamhost (`https://roadweather.app`)
+- **Backend**: Railway (`https://weathe1-production.up.railway.app`)
+- **Code Repository**: GitHub (`https://github.com/mopie992/Weathe1`)
