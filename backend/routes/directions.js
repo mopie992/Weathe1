@@ -21,10 +21,14 @@ router.get('/', async (req, res) => {
 
     const mapboxToken = process.env.MAPBOX_TOKEN;
     if (!mapboxToken) {
+      console.error('❌ MAPBOX_TOKEN not set in environment variables');
       return res.status(500).json({ 
         error: 'Mapbox token not configured' 
       });
     }
+    
+    console.log(`📍 Directions request: origin=${origin}, destination=${destination}`);
+    console.log(`📍 Mapbox token present: ${mapboxToken ? 'Yes' : 'No'} (${mapboxToken ? mapboxToken.substring(0, 20) + '...' : 'missing'})`);
 
     // Call Mapbox Directions API
     const url = `https://api.mapbox.com/directions/v5/mapbox/driving/${origin};${destination}`;
@@ -117,10 +121,16 @@ router.get('/', async (req, res) => {
       geometry: polyline // keep original for rendering
     });
   } catch (error) {
-    console.error('Directions API error:', error.message);
+    console.error('❌ Directions API error:', {
+      message: error.message,
+      response: error.response?.data,
+      status: error.response?.status,
+      statusText: error.response?.statusText,
+      stack: error.stack
+    });
     res.status(500).json({ 
       error: 'Failed to fetch directions',
-      details: error.message 
+      details: error.response?.data?.message || error.message 
     });
   }
 });
