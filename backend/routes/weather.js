@@ -308,21 +308,42 @@ router.get('/', async (req, res) => {
                 hourlyForecasts.hourly = processed.filter(item => item !== null);
                 
                 console.log(`✅ Successfully processed ${hourlyForecasts.hourly.length} hourly forecasts for ${lat},${lon} (from ${forecastList.length} raw items, ${processed.length - hourlyForecasts.hourly.length} filtered out)`);
-                if (hourlyForecasts.hourly.length > 0) {
-                  console.log(`✅ Sample hourly data (first):`, JSON.stringify(hourlyForecasts.hourly[0], null, 2));
-                  console.log(`✅ Sample hourly data (last):`, JSON.stringify(hourlyForecasts.hourly[hourlyForecasts.hourly.length - 1], null, 2));
-                } else {
+                
+                // CRITICAL: If all items were filtered out, something is wrong - log everything
+                if (hourlyForecasts.hourly.length === 0) {
                   console.error(`❌ CRITICAL: All forecast items were filtered out for ${lat},${lon}!`);
                   console.error(`❌ Raw processed array (first 5):`, processed.slice(0, 5));
                   console.error(`❌ Full forecast list length:`, forecastList.length);
-                  console.error(`❌ First 3 raw items:`, forecastList.slice(0, 3).map(item => ({
+                  console.error(`❌ First 3 raw items structure:`, forecastList.slice(0, 3).map((item, idx) => ({
+                    index: idx,
                     hasMain: !!item.main,
+                    mainKeys: item.main ? Object.keys(item.main) : 'no main',
                     hasWeather: !!item.weather,
                     weatherType: typeof item.weather,
                     weatherIsArray: Array.isArray(item.weather),
                     weatherLength: item.weather?.length || 0,
-                    keys: Object.keys(item)
+                    weatherContent: item.weather,
+                    allKeys: Object.keys(item)
                   })));
+                  
+                  // EMERGENCY FALLBACK: If processing failed but we have raw data, try to use it anyway
+                  if (forecastList.length > 0 && forecastList[0] && forecastList[0].main && forecastList[0].weather) {
+                    console.warn(`⚠️ Attempting emergency fallback - using raw forecast items directly`);
+                    hourlyForecasts.hourly = forecastList.slice(0, 16).map(item => ({
+                      temp: item.main?.temp || 20,
+                      feels_like: item.main?.feels_like || 20,
+                      humidity: item.main?.humidity || 50,
+                      wind_speed: item.wind?.speed || 0,
+                      wind_deg: item.wind?.deg || 0,
+                      weather: Array.isArray(item.weather) && item.weather.length > 0 ? item.weather[0] : { main: 'Clear', description: 'clear sky' },
+                      precip: { '1h': item.rain?.['3h'] ? item.rain['3h'] / 3 : item.snow?.['3h'] ? item.snow['3h'] / 3 : 0 },
+                      timestamp: item.dt
+                    }));
+                    console.log(`⚠️ Emergency fallback created ${hourlyForecasts.hourly.length} items`);
+                  }
+                } else {
+                  console.log(`✅ Sample hourly data (first):`, JSON.stringify(hourlyForecasts.hourly[0], null, 2));
+                  console.log(`✅ Sample hourly data (last):`, JSON.stringify(hourlyForecasts.hourly[hourlyForecasts.hourly.length - 1], null, 2));
                 }
               } else {
                 console.error(`❌ Forecast list is not a valid array for ${lat},${lon}:`, {
