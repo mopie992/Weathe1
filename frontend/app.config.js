@@ -13,8 +13,8 @@ if (process.env.NODE_ENV !== 'production') {
 
 module.exports = {
   expo: {
-    name: "WeatherRoute",
-    slug: "weatherroute",
+    name: "RoadWeather",
+    slug: "roadweather",
     version: "1.0.0",
     orientation: "portrait",
     userInterfaceStyle: "light",
@@ -26,13 +26,13 @@ module.exports = {
     ],
     ios: {
       supportsTablet: true,
-      bundleIdentifier: "com.weatherroute.app"
+      bundleIdentifier: "com.roadweather.app"
     },
     android: {
       adaptiveIcon: {
         backgroundColor: "#ffffff"
       },
-      package: "com.weatherroute.app",
+      package: "com.roadweather.app",
       permissions: [
         "ACCESS_FINE_LOCATION",
         "ACCESS_COARSE_LOCATION"
@@ -42,7 +42,8 @@ module.exports = {
       // Configure webpack to inject environment variables
       config: {
         plugins: []
-      }
+      },
+      favicon: "./assets/favicon.ico"
     },
     extra: {
       // Make environment variables available to the app
