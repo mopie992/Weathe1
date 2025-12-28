@@ -43,7 +43,6 @@ module.exports = {
       config: {
         plugins: []
       },
-      favicon: "./assets/favicon.ico"
     },
     extra: {
       // Make environment variables available to the app

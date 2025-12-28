@@ -7,6 +7,7 @@ const MapViewComponent = Platform.OS === 'web'
   ? require('./components/MapViewWeb').default
   : require('./components/MapViewPlaceholder').default;
 import TimelineSlider from './components/TimelineSlider';
+import WelcomeModal from './components/WelcomeModal';
 import { getDirections } from './services/directionsService';
 import { getWeather } from './services/weatherService';
 import { geocode } from './services/geocodingService';
@@ -764,6 +765,9 @@ export default function App() {
   return (
     <View style={styles.container}>
       <StatusBar style="auto" />
+      
+      {/* Welcome Modal - Shows on first visit */}
+      <WelcomeModal />
       
       {/* Search Bar */}
       <View style={styles.searchContainer}>
