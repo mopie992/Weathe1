@@ -58,7 +58,7 @@ router.get('/test-forecast', async (req, res) => {
  */
 router.get('/', async (req, res) => {
   try {
-    const { coordinates } = req.query;
+    const { coordinates, clearCache } = req.query;
 
     if (!coordinates) {
       return res.status(400).json({ 
@@ -104,6 +104,9 @@ router.get('/', async (req, res) => {
 
     const weatherData = [];
 
+    // Capture clearCache in a const to ensure it's accessible in the map callback
+    const shouldClearCache = clearCache === 'true';
+
     // Fetch weather for all coordinates in parallel (much faster!)
     const weatherPromises = coordsArray.map(async (coord) => {
       try {
@@ -133,7 +136,7 @@ router.get('/', async (req, res) => {
       let hourlyForecasts = null;
       
       // Only check cache if clearCache is not requested
-      if (clearCache !== 'true') {
+      if (!shouldClearCache) {
         hourlyForecasts = await getCachedWeather(cacheKey);
         const hourlyLength = hourlyForecasts?.hourly?.length || 0;
         console.log(`🔍 Cache check for ${lat},${lon}: hourlyLength=${hourlyLength}`);
@@ -194,11 +197,23 @@ router.get('/', async (req, res) => {
             
             // Log successful API calls
             console.log(`API calls successful for ${lat},${lon}:`, {
-              currentStatus: currentResponse.status,
-              forecastStatus: forecastResponse.status,
-              forecastHasData: !!forecastResponse.data,
-              forecastListLength: forecastResponse.data?.list?.length || 0
+              currentStatus: currentResponse?.status,
+              forecastStatus: forecastResponse?.status,
+              forecastHasData: !!forecastResponse?.data,
+              forecastListLength: forecastResponse?.data?.list?.length || 0,
+              forecastResponseKeys: forecastResponse?.data ? Object.keys(forecastResponse.data) : 'no data',
+              forecastResponseCode: forecastResponse?.data?.cod,
+              forecastResponseMessage: forecastResponse?.data?.message
             });
+            
+            // Check for API errors in response
+            if (forecastResponse?.data?.cod && forecastResponse.data.cod !== '200' && forecastResponse.data.cod !== 200) {
+              console.error(`❌ OpenWeather API error for ${lat},${lon}:`, {
+                cod: forecastResponse.data.cod,
+                message: forecastResponse.data.message
+              });
+              throw new Error(`OpenWeather API error: ${forecastResponse.data.message || 'Unknown error'}`);
+            }
 
             // Process current weather
             const current = currentResponse.data;
@@ -324,7 +339,14 @@ router.get('/', async (req, res) => {
               console.error(`❌ NOT caching - hourly array is empty for ${lat},${lon}`);
             }
           } catch (error) {
-            console.error(`Weather API error for ${lat},${lon}:`, error.response?.data || error.message);
+            console.error(`❌ Weather API error for ${lat},${lon}:`, {
+              message: error.message,
+              code: error.code,
+              status: error.response?.status,
+              statusText: error.response?.statusText,
+              data: error.response?.data,
+              stack: error.stack
+            });
             // Use a default/fallback weather object if API fails
             hourlyForecasts = {
               current: {
@@ -339,6 +361,8 @@ router.get('/', async (req, res) => {
               },
               hourly: []
             };
+            // Don't cache error responses
+            console.warn(`⚠️ Not caching error response for ${lat},${lon}`);
           }
         }
 

@@ -8,8 +8,8 @@ const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL ||
   (typeof window !== 'undefined' 
     ? (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
         ? 'http://localhost:3000/api'  // Local web development
-        : 'https://weathe1-production.up.railway.app/api')  // Production web
-    : (__DEV__ ? 'http://localhost:3000/api' : 'https://weathe1-production.up.railway.app/api'));  // Mobile: local or production
+        : 'https://weathe1-production.up.railway.app/api')  // Production: Always use Railway backend
+    : (__DEV__ ? 'http://localhost:3000/api' : 'https://weathe1-production.up.railway.app/api'));  // Mobile: local or Railway
 
 /**
  * Fetch hourly weather forecasts for coordinates along a route (0-48 hours)
@@ -31,9 +31,26 @@ export async function getWeather(coordinates, clearCache = false) {
     if (response.data && Array.isArray(response.data)) {
       const emptyCount = response.data.filter(item => !item.hourlyForecasts?.hourly || item.hourlyForecasts.hourly.length === 0).length;
       if (emptyCount > 0) {
-        console.warn(`⚠️ Received ${emptyCount} points with empty hourly arrays out of ${response.data.length} total`);
+        console.error(`❌ Received ${emptyCount} points with empty hourly arrays out of ${response.data.length} total`);
+        // Log first point's structure to debug
+        if (response.data[0]) {
+          console.error(`❌ First point structure:`, {
+            hasHourlyForecasts: !!response.data[0].hourlyForecasts,
+            hourlyForecastsType: typeof response.data[0].hourlyForecasts,
+            hasHourly: !!response.data[0].hourlyForecasts?.hourly,
+            hourlyType: typeof response.data[0].hourlyForecasts?.hourly,
+            hourlyIsArray: Array.isArray(response.data[0].hourlyForecasts?.hourly),
+            hourlyLength: response.data[0].hourlyForecasts?.hourly?.length || 0,
+            hasCurrent: !!response.data[0].hourlyForecasts?.current,
+            fullStructure: JSON.stringify(response.data[0], null, 2).substring(0, 1000)
+          });
+        }
       }
-      console.log(`Weather response: ${response.data.length} points, ${response.data.filter(item => item.hourlyForecasts?.hourly?.length > 0).length} with hourly data`);
+      const pointsWithHourly = response.data.filter(item => item.hourlyForecasts?.hourly?.length > 0).length;
+      console.log(`✅ Weather response: ${response.data.length} points, ${pointsWithHourly} with hourly data, ${emptyCount} with empty arrays`);
+      if (pointsWithHourly === 0) {
+        console.error(`🚨 CRITICAL: All points have empty hourly arrays! Backend may not be returning forecast data.`);
+      }
     }
 
     return response.data;

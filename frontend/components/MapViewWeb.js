@@ -72,7 +72,7 @@ const MapViewWeb = ({ currentLocation, routeCoordinates, weatherData }) => {
 
   // Initialize map
   useEffect(() => {
-    if (typeof window === 'undefined' || !mapboxgl || !currentLocation || loading) return;
+    if (typeof window === 'undefined' || !mapboxgl || loading) return;
 
     if (!map.current && mapContainer.current) {
       // Try multiple ways to get the token (Expo loads env vars at build time)
@@ -114,17 +114,36 @@ const MapViewWeb = ({ currentLocation, routeCoordinates, weatherData }) => {
       console.log('Mapbox token found, initializing map...');
       mapboxgl.accessToken = token;
       
+      // Use currentLocation if available, otherwise use a default center (North America)
+      const center = currentLocation 
+        ? [currentLocation.longitude, currentLocation.latitude]
+        : [-98, 39]; // Default: center of North America (US)
+      const zoom = currentLocation ? 12 : 4; // Zoomed in if location available, regional view otherwise
+      
       map.current = new mapboxgl.Map({
         container: mapContainer.current,
         style: 'mapbox://styles/mapbox/streets-v12',
-        center: [currentLocation.longitude, currentLocation.latitude],
-        zoom: 12
+        center: center,
+        zoom: zoom
       });
 
-      // Add current location marker
-      new mapboxgl.Marker({ color: '#007AFF' })
-        .setLngLat([currentLocation.longitude, currentLocation.latitude])
-        .addTo(map.current);
+      // Handle map load events
+      map.current.on('load', () => {
+        console.log('✅ Map loaded successfully');
+        setLoading(false);
+      });
+
+      map.current.on('error', (e) => {
+        console.error('❌ Map error:', e);
+        setLoading(false);
+      });
+
+      // Add current location marker if available
+      if (currentLocation) {
+        new mapboxgl.Marker({ color: '#007AFF' })
+          .setLngLat([currentLocation.longitude, currentLocation.latitude])
+          .addTo(map.current);
+      }
     }
 
     return () => {
@@ -133,7 +152,37 @@ const MapViewWeb = ({ currentLocation, routeCoordinates, weatherData }) => {
         map.current = null;
       }
     };
-  }, [currentLocation, mapboxgl, loading]);
+  }, [mapboxgl, loading]); // Removed currentLocation dependency - handle it separately
+
+  // Update map center when currentLocation becomes available
+  useEffect(() => {
+    if (!map.current || !currentLocation || !mapboxgl) return;
+
+    try {
+      // Fly to the new location
+      map.current.flyTo({
+        center: [currentLocation.longitude, currentLocation.latitude],
+        zoom: 12,
+        duration: 1000
+      });
+
+      // Add or update current location marker
+      // Remove existing marker if any
+      const existingMarker = markersRef.current.find(m => m.type === 'currentLocation');
+      if (existingMarker && existingMarker.marker) {
+        existingMarker.marker.remove();
+      }
+
+      // Add new marker
+      const marker = new mapboxgl.Marker({ color: '#007AFF' })
+        .setLngLat([currentLocation.longitude, currentLocation.latitude])
+        .addTo(map.current);
+      
+      markersRef.current.push({ type: 'currentLocation', marker });
+    } catch (error) {
+      console.error('Error updating map center:', error);
+    }
+  }, [currentLocation, mapboxgl]);
 
   // Update route line
   useEffect(() => {
@@ -261,7 +310,15 @@ const MapViewWeb = ({ currentLocation, routeCoordinates, weatherData }) => {
       if (markersRef.current && markersRef.current.length > 0) {
         markersRef.current.forEach(marker => {
           try {
-            marker.remove();
+            // Check if marker has remove method (Mapbox Marker object)
+            if (marker && typeof marker.remove === 'function') {
+              marker.remove();
+            } else if (marker && marker.marker && typeof marker.marker.remove === 'function') {
+              // Handle nested marker structure
+              marker.marker.remove();
+            } else {
+              console.warn('Marker does not have remove method:', marker);
+            }
           } catch (e) {
             console.warn('Error removing marker:', e);
           }

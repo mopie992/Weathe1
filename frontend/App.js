@@ -7,13 +7,15 @@ const MapViewComponent = Platform.OS === 'web'
   ? require('./components/MapViewWeb').default
   : require('./components/MapViewPlaceholder').default;
 import TimelineSlider from './components/TimelineSlider';
-import DepartureTimeSelector from './components/DepartureTimeSelector';
 import { getDirections } from './services/directionsService';
 import { getWeather } from './services/weatherService';
+import { geocode } from './services/geocodingService';
 import * as Location from 'expo-location';
 
 export default function App() {
   const [currentLocation, setCurrentLocation] = useState(null);
+  const [departure, setDeparture] = useState(''); // Departure location (address or lat,lon)
+  const [useCurrentLocation, setUseCurrentLocation] = useState(true); // Toggle to use current location (default true - auto-detect on load)
   const [destination, setDestination] = useState('');
   const [routeCoordinates, setRouteCoordinates] = useState([]);
   const [routeDuration, setRouteDuration] = useState(null); // Route duration in seconds
@@ -22,71 +24,201 @@ export default function App() {
   const [weatherPointIndices, setWeatherPointIndices] = useState([]); // Route indices corresponding to weather points
   const [weatherHourlyData, setWeatherHourlyData] = useState([]); // Full hourly forecasts for weather points only
   const [weatherData, setWeatherData] = useState([]); // Current hour's weather data for display
-  const [departureTimeOffset, setDepartureTimeOffset] = useState(0); // Minutes from now for departure
   const [selectedTime, setSelectedTime] = useState(0); // Hours from now (for slider preview)
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
+  // Try to get location automatically on load
   useEffect(() => {
-    requestLocationPermission();
+    // Silently try to get location on page load
+    requestLocationPermission(true); // true = silent mode (no alerts on failure)
   }, []);
 
-  const requestLocationPermission = async () => {
+  const requestLocationPermission = async (silent = false) => {
     try {
+      console.log('Requesting location permission...');
+      
+      // For web, use browser's native geolocation API
+      if (Platform.OS === 'web') {
+        if (!navigator.geolocation) {
+          throw new Error('Geolocation is not supported by this browser');
+        }
+
+        try {
+          await new Promise((resolve, reject) => {
+            navigator.geolocation.getCurrentPosition(
+              (position) => {
+                const coords = {
+                  latitude: position.coords.latitude,
+                  longitude: position.coords.longitude
+                };
+                setCurrentLocation(coords);
+                console.log('✅ Got location (web):', coords.latitude, coords.longitude);
+                resolve(coords);
+              },
+              async (error) => {
+                console.error('❌ Location error (web):', error);
+                let errorMessage = 'Could not get your location.';
+                let shouldTryIPFallback = false;
+                
+                if (error.code === 1) {
+                  errorMessage = 'Location permission was denied. Please allow location access in your browser settings.';
+                } else if (error.code === 2) {
+                  // For laptops/desktops, try IP-based geolocation as fallback
+                  shouldTryIPFallback = true;
+                  errorMessage = 'Precise location unavailable (laptops don\'t have GPS). Trying approximate location...';
+                } else if (error.code === 3) {
+                  errorMessage = 'Location request timed out. Please try again.';
+                }
+                
+                // Try IP-based geolocation as fallback for code 2 (position unavailable)
+                if (shouldTryIPFallback) {
+                  try {
+                    console.log('Trying IP-based geolocation fallback...');
+                    const ipResponse = await fetch('https://ipapi.co/json/');
+                    const ipData = await ipResponse.json();
+                    
+                    if (ipData.latitude && ipData.longitude) {
+                      const coords = {
+                        latitude: ipData.latitude,
+                        longitude: ipData.longitude
+                      };
+                      setCurrentLocation(coords);
+                      console.log('✅ Got approximate location from IP:', coords.latitude, coords.longitude);
+                      if (!silent) {
+                        Alert.alert(
+                          'Approximate Location',
+                          `Using approximate location based on your IP address (${ipData.city || 'unknown'}, ${ipData.country_name || 'unknown'}). This may not be exact.`,
+                          [{ text: 'OK' }]
+                        );
+                      }
+                      resolve(coords);
+                      return;
+                    }
+                  } catch (ipError) {
+                    console.error('IP geolocation also failed:', ipError);
+                  }
+                }
+                
+                // If IP fallback failed or other error, handle silently or show error
+                setCurrentLocation(null);
+                if (!silent) {
+                  setUseCurrentLocation(false);
+                  Alert.alert(
+                    'Location Error', 
+                    errorMessage + (shouldTryIPFallback ? '\n\nPlease enter your departure location manually.' : ''),
+                    [{ text: 'OK' }]
+                  );
+                } else {
+                  // Silent mode: just log and keep checkbox checked for manual retry
+                  console.log('Location unavailable (silent mode) - user can manually enter departure');
+                }
+                reject(error);
+              },
+              {
+                enableHighAccuracy: false,
+                timeout: 20000, // Increased timeout
+                maximumAge: 60000
+              }
+            );
+          });
+        } catch (error) {
+          // Error already handled in the callback, but catch to prevent unhandled rejection
+          console.error('Geolocation promise rejected:', error);
+          throw error; // Re-throw to be caught by outer catch block
+        }
+        return; // Exit early for web
+      }
+
+      // For mobile (iOS/Android), use Expo Location API
       const { status } = await Location.requestForegroundPermissionsAsync();
+      console.log('Location permission status:', status);
+      
       if (status !== 'granted') {
-        // Don't block the app - allow manual entry
-        console.log('Location permission denied - using default location');
-        // Set a default location (can be changed)
-        setCurrentLocation({
-          latitude: 40.7128,
-          longitude: -74.0060
-        });
-        Alert.alert(
-          'Location Permission',
-          'Location permission was denied. Using default location (NYC). You can still search for routes.',
-          [{ text: 'OK' }]
-        );
+        console.log('Location permission denied - user must enter departure manually');
+        setCurrentLocation(null);
+        if (!silent) {
+          Alert.alert(
+            'Location Permission',
+            'Location permission was denied. Please uncheck "Use Current Location" and enter your departure location manually.',
+            [{ text: 'OK' }]
+          );
+          setUseCurrentLocation(false);
+        } else {
+          console.log('Location permission denied (silent mode) - user can manually enter departure');
+        }
         return;
       }
 
+      console.log('Getting current position...');
       const location = await Location.getCurrentPositionAsync({
         accuracy: Location.Accuracy.Balanced,
-        timeout: 10000
+        timeout: 15000
       });
-      setCurrentLocation({
+      
+      const coords = {
         latitude: location.coords.latitude,
         longitude: location.coords.longitude
-      });
-      console.log('Got location:', location.coords.latitude, location.coords.longitude);
+      };
+      
+      setCurrentLocation(coords);
+      console.log('✅ Got location (mobile):', coords.latitude, coords.longitude);
     } catch (error) {
-      console.error('Location error:', error);
-      // Don't block the app - set default location
-      setCurrentLocation({
-        latitude: 40.7128,
-        longitude: -74.0060
+      console.error('❌ Location error:', error);
+      console.error('Error details:', {
+        message: error.message,
+        code: error.code,
+        name: error.name
       });
-      Alert.alert(
-        'Location Error',
-        'Could not get your location. Using default location (NYC). You can still search for routes.',
-        [{ text: 'OK' }]
-      );
+      setCurrentLocation(null);
+      if (!silent) {
+        setUseCurrentLocation(false);
+        Alert.alert(
+          'Location Error',
+          `Could not get your location: ${error.message}. Please uncheck "Use Current Location" and enter your departure location manually.`,
+          [{ text: 'OK' }]
+        );
+      } else {
+        console.log('Location error (silent mode):', error.message);
+      }
     }
   };
 
   const handleSearchRoute = async () => {
-    if (!currentLocation || !destination.trim()) {
+    // Validate required fields
+    if (!destination.trim()) {
       Alert.alert('Error', 'Please enter a destination');
+      return;
+    }
+
+    if (!useCurrentLocation && !departure.trim()) {
+      Alert.alert('Error', 'Please enter a departure location or use current location');
+      return;
+    }
+
+    if (useCurrentLocation && !currentLocation) {
+      Alert.alert('Error', 'Current location not available. Please enable location services or enter a departure location.');
       return;
     }
 
     setLoading(true);
     setError(null); // Clear any previous errors
     try {
+      // Parse departure location (either current location or entered location)
+      let originCoords;
+      if (useCurrentLocation) {
+        originCoords = {
+          latitude: currentLocation.latitude,
+          longitude: currentLocation.longitude
+        };
+      } else {
+        originCoords = await parseDestination(departure);
+      }
+
       // Parse destination (could be address or lat,lon)
       const destCoords = await parseDestination(destination);
       
-      const origin = `${currentLocation.longitude},${currentLocation.latitude}`;
+      const origin = `${originCoords.longitude},${originCoords.latitude}`;
       const dest = `${destCoords.longitude},${destCoords.latitude}`;
 
       // Get route
@@ -142,7 +274,6 @@ export default function App() {
           // Weather will be updated by useEffect when routeDuration is set
         }
         setSelectedTime(0);
-        setDepartureTimeOffset(0); // Reset to NOW
       } catch (weatherError) {
         console.error('Weather fetch error (non-fatal):', weatherError);
         // Don't fail the whole search - show route without weather
@@ -174,9 +305,16 @@ export default function App() {
       };
     }
 
-    // Otherwise, would need geocoding API
-    // For now, return a default or show error
-    throw new Error('Please enter destination as "latitude,longitude" or implement geocoding');
+    // Otherwise, use geocoding API to convert place name/address to coordinates
+    try {
+      const result = await geocode(input.trim());
+      return {
+        latitude: result.latitude,
+        longitude: result.longitude
+      };
+    } catch (error) {
+      throw new Error(error.message || `Could not find location: "${input}"`);
+    }
   };
 
   /**
@@ -300,6 +438,20 @@ export default function App() {
           return null;
         }
 
+        // DEBUG: Log the structure of hourlyForecasts
+        if (weatherIndex === 0) {
+          console.log('🔍 DEBUG: First weather point structure:', {
+            hasHourlyForecasts: !!hourlyForecasts,
+            hourlyForecastsType: typeof hourlyForecasts,
+            hasHourly: !!hourlyForecasts?.hourly,
+            hourlyType: typeof hourlyForecasts?.hourly,
+            hourlyIsArray: Array.isArray(hourlyForecasts?.hourly),
+            hourlyLength: hourlyForecasts?.hourly?.length || 0,
+            hasCurrent: !!hourlyForecasts?.current,
+            fullStructure: JSON.stringify(hourlyForecasts, null, 2).substring(0, 500)
+          });
+        }
+
         // Use the stored route index mapping instead of coordinate matching
         const routeIndex = weatherPointIndices[weatherIndex];
         if (routeIndex === undefined || routeIndex === null) {
@@ -353,7 +505,13 @@ export default function App() {
           } else {
             // No hourly data, use current
             weather = hourlyForecasts.current;
-            console.log(`Point ${weatherIndex}: No hourly data (length=${hourlyForecasts.hourly?.length || 0}), using current`);
+            console.error(`❌ Point ${weatherIndex}: No hourly data!`, {
+              hasHourly: !!hourlyForecasts.hourly,
+              hourlyType: typeof hourlyForecasts.hourly,
+              hourlyIsArray: Array.isArray(hourlyForecasts.hourly),
+              hourlyLength: hourlyForecasts.hourly?.length || 0,
+              hasCurrent: !!hourlyForecasts.current
+            });
           }
         }
 
@@ -471,14 +629,9 @@ export default function App() {
     }
   };
 
-  const handleDepartureTimeChange = (offsetMinutes) => {
-    setDepartureTimeOffset(offsetMinutes);
-    updateWeatherForDepartureTime(offsetMinutes, selectedTime);
-  };
-
   const handleTimeChange = (hours) => {
     setSelectedTime(hours);
-    updateWeatherForDepartureTime(departureTimeOffset, hours);
+    updateWeatherForDepartureTime(0, hours); // Always use 0 (NOW) for departure
   };
 
   const updateWeatherForDepartureTime = (departureOffsetMinutes, previewHoursOffset = 0) => {
@@ -561,13 +714,13 @@ export default function App() {
     return filtered;
   };
 
-  // Update weather when departure time, route, or preview slider changes
+  // Update weather when route or preview slider changes
   useEffect(() => {
     if (weatherHourlyData.length > 0 && routeDuration && routeCoordinates.length > 0) {
-      updateWeatherForDepartureTime(departureTimeOffset, selectedTime);
+      updateWeatherForDepartureTime(0, selectedTime); // Always use 0 (NOW) for departure
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [departureTimeOffset, selectedTime, routeDuration, routeCoordinates.length, weatherHourlyData.length]);
+  }, [selectedTime, routeDuration, routeCoordinates.length, weatherHourlyData.length]);
 
   if (error) {
     return (
@@ -591,50 +744,66 @@ export default function App() {
       
       {/* Search Bar */}
       <View style={styles.searchContainer}>
+        {/* Departure Location */}
+        <View style={styles.inputRow}>
+          <Text style={styles.inputLabel}>Departure:</Text>
+          <View style={styles.checkboxContainer}>
+            <TouchableOpacity
+              style={styles.checkbox}
+              onPress={async () => {
+                const newValue = !useCurrentLocation;
+                setUseCurrentLocation(newValue);
+                
+                if (newValue) {
+                  // User is checking "Use Current Location" - request permission now (user gesture)
+                  setDeparture(''); // Clear departure when switching to current location
+                  await requestLocationPermission();
+                } else {
+                  // User is unchecking - clear location
+                  setCurrentLocation(null);
+                }
+              }}
+            >
+              <Text style={styles.checkboxText}>
+                {useCurrentLocation ? '✓' : '○'} Use Current Location
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+        {!useCurrentLocation && (
+          <TextInput
+            style={[styles.input, styles.inputFullWidth]}
+            placeholder="Enter departure (address or lat,lon)"
+            value={departure}
+            onChangeText={setDeparture}
+          />
+        )}
+        {useCurrentLocation && currentLocation && (
+          <Text style={styles.currentLocationText}>
+            Current: {currentLocation.latitude.toFixed(4)}, {currentLocation.longitude.toFixed(4)}
+          </Text>
+        )}
+        
+        {/* Destination Location */}
+        <View style={styles.inputRow}>
+          <Text style={styles.inputLabel}>Destination:</Text>
+        </View>
         <TextInput
-          style={styles.input}
-          placeholder="Enter destination (lat,lon)"
+          style={[styles.input, styles.inputFullWidth]}
+          placeholder="Enter destination (address or lat,lon)"
           value={destination}
           onChangeText={setDestination}
         />
+        
+        {/* Search Button */}
         <TouchableOpacity
-          style={styles.button}
+          style={[styles.button, styles.searchButton]}
           onPress={handleSearchRoute}
           disabled={loading}
         >
-          <Text style={styles.buttonText}>{loading ? 'Loading...' : 'Search'}</Text>
+          <Text style={styles.buttonText}>{loading ? 'Loading...' : 'Search Route'}</Text>
         </TouchableOpacity>
       </View>
-
-      {/* Departure Time Selector and Estimated Arrival */}
-      {routeCoordinates.length > 0 && routeDuration && (
-        <View style={styles.departureContainer}>
-          <DepartureTimeSelector
-            departureTimeOffset={departureTimeOffset}
-            onDepartureTimeChange={handleDepartureTimeChange}
-          />
-          {routeDuration && (
-            <View style={styles.arrivalInfo}>
-              <Text style={styles.arrivalLabel}>Estimated Arrival:</Text>
-              <Text style={styles.arrivalTime}>
-                {(() => {
-                  const departureTime = new Date(Date.now() + departureTimeOffset * 60 * 1000);
-                  const arrivalTime = new Date(departureTime.getTime() + routeDuration * 1000);
-                  const hours = arrivalTime.getHours();
-                  const minutes = arrivalTime.getMinutes();
-                  const ampm = hours >= 12 ? 'PM' : 'AM';
-                  const displayHours = hours % 12 || 12;
-                  const displayMinutes = minutes.toString().padStart(2, '0');
-                  return `${displayHours}:${displayMinutes} ${ampm}`;
-                })()}
-              </Text>
-              <Text style={styles.durationText}>
-                ({Math.round(routeDuration / 60)} min)
-              </Text>
-            </View>
-          )}
-        </View>
-      )}
 
       {/* Map View */}
       <View style={styles.mapContainer}>
@@ -648,6 +817,29 @@ export default function App() {
       {/* Timeline Slider - Preview different departure times */}
       {routeCoordinates.length > 0 && (
         <View style={styles.sliderContainer}>
+          {/* Estimated Arrival Time and Distance - Above Slider */}
+          {routeDuration && (
+            <View style={styles.arrivalInfo}>
+              <Text style={styles.arrivalLabel}>Estimated Arrival:</Text>
+              <Text style={styles.arrivalTime}>
+                {(() => {
+                  // Base departure time is NOW, plus slider offset
+                  const departureTime = new Date(Date.now() + selectedTime * 60 * 60 * 1000);
+                  const arrivalTime = new Date(departureTime.getTime() + routeDuration * 1000);
+                  const hours = arrivalTime.getHours();
+                  const minutes = arrivalTime.getMinutes();
+                  const ampm = hours >= 12 ? 'PM' : 'AM';
+                  const displayHours = hours % 12 || 12;
+                  const displayMinutes = minutes.toString().padStart(2, '0');
+                  return `${displayHours}:${displayMinutes} ${ampm}`;
+                })()}
+              </Text>
+              <Text style={styles.durationText}>
+                ({Math.round(routeDuration / 60)} min
+                {routeDistance ? ` • ${(routeDistance / 1609.34).toFixed(1)} mi` : ''})
+              </Text>
+            </View>
+          )}
           <Text style={styles.sliderLabel}>
             Preview Weather: {selectedTime === 0 ? 'Current' : `+${selectedTime}h`} from departure
           </Text>
@@ -668,11 +860,46 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
   },
   searchContainer: {
-    flexDirection: 'row',
+    flexDirection: 'column',
     padding: 10,
     backgroundColor: '#f5f5f5',
     borderBottomWidth: 1,
     borderBottomColor: '#ddd',
+  },
+  inputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 5,
+  },
+  inputLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#333',
+    marginRight: 8,
+    minWidth: 80,
+  },
+  checkboxContainer: {
+    flex: 1,
+  },
+  checkbox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  checkboxText: {
+    fontSize: 14,
+    color: '#007AFF',
+    marginLeft: 5,
+  },
+  currentLocationText: {
+    fontSize: 12,
+    color: '#666',
+    fontStyle: 'italic',
+    marginBottom: 8,
+    marginLeft: 88, // Align with input fields
+  },
+  searchButton: {
+    marginTop: 5,
+    alignSelf: 'stretch',
   },
   departureContainer: {
     padding: 10,
@@ -683,7 +910,7 @@ const styles = StyleSheet.create({
   arrivalInfo: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 10,
+    marginBottom: 10,
     padding: 8,
     backgroundColor: '#f0f8ff',
     borderRadius: 5,
@@ -713,6 +940,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     marginRight: 10,
     backgroundColor: '#fff',
+  },
+  inputFullWidth: {
+    flex: 0, // Override flex for full width inputs
+    width: '100%',
+    marginRight: 0,
+    marginBottom: 10,
   },
   button: {
     backgroundColor: '#007AFF',

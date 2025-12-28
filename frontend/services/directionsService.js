@@ -8,8 +8,14 @@ const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL ||
   (typeof window !== 'undefined' 
     ? (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
         ? 'http://localhost:3000/api'  // Local web development
-        : 'https://weathe1-production.up.railway.app/api')  // Production web
-    : (__DEV__ ? 'http://localhost:3000/api' : 'https://weathe1-production.up.railway.app/api'));  // Mobile: local or production
+        : 'https://weathe1-production.up.railway.app/api')  // Production: Always use Railway backend
+    : (__DEV__ ? 'http://localhost:3000/api' : 'https://weathe1-production.up.railway.app/api'));  // Mobile: local or Railway
+
+// Log API URL for debugging
+if (typeof window !== 'undefined') {
+  console.log('API Base URL:', API_BASE_URL);
+  console.log('Hostname:', window.location.hostname);
+}
 
 /**
  * Fetch driving route from backend
