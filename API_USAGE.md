@@ -63,17 +63,25 @@
 ### Per Route Search:
 - **Mapbox Directions**: 1 API call
 - **Mapbox Map Load**: 1 load (when page loads)
+- **Mapbox Geocoding**: 1-2 calls (if user enters address instead of coordinates)
 - **OpenWeather**: 
   - 2 calls per weather point (current + forecast)
-  - Typical route: ~17 points = **34 calls**
+  - Typical route: ~8-17 points = **16-34 calls**
   - Long route (8 hours): ~17 points = **34 calls**
+  - **Capped at 50 points max** = **100 calls max per route**
 
 ### Monthly Estimates (100 users, 10 routes each):
 - **Mapbox Directions**: ~1,000 calls/month ✅ (well under 100k limit)
 - **Mapbox Map Loads**: ~1,000 loads/month ✅ (well under 50k limit)
+- **Mapbox Geocoding**: ~500-1,000 calls/month ✅ (well under 100k limit)
 - **OpenWeather**: ~34,000 calls/month ✅ (well under 1M limit)
 
 **You're well within free tier limits!**
+
+### Cost Per Route (if you exceed free tier):
+- **Mapbox Directions**: $0.50 per 1,000 requests (after 100k free)
+- **Mapbox Map Loads**: $0.50 per 1,000 loads (after 50k free)
+- **OpenWeather**: $40/month for 1M calls (after free tier)
 
 ---
 
