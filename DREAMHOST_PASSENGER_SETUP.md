@@ -52,10 +52,14 @@ npm install --production
 Make sure `/home/yourusername/roadweather.app/backend/.env` exists with:
 ```env
 PORT=3000
-MAPBOX_TOKEN=pk.eyJ1Ijoia3BhcmtlcjcyIiwiYSI6ImNtam1lM2RteTFibnMzZG95cTNkcmp6cG4ifQ.JVhbzl61PK0gbQUscHhuVw
-OPENWEATHER_KEY=3a4c4264b5f92df345d7f177b64cf469
+MAPBOX_TOKEN=your_mapbox_token_here
+OPENWEATHER_KEY=your_openweather_key_here
 NODE_ENV=production
 ```
+
+**⚠️ IMPORTANT**: Replace `your_mapbox_token_here` and `your_openweather_key_here` with your actual API keys.
+- Get Mapbox token: https://account.mapbox.com/
+- Get OpenWeather key: https://home.openweathermap.org/api_keys
 
 ### 7. Create public Directory (Required by Passenger)
 
