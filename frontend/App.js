@@ -250,18 +250,41 @@ export default function App() {
         
         if (weatherHourly && weatherHourly.length > 0) {
           // Log detailed info about each point
+          console.log('🔍 RAW weatherHourly structure (first point):', {
+            hasPoint: !!weatherHourly[0],
+            pointKeys: weatherHourly[0] ? Object.keys(weatherHourly[0]) : 'no point',
+            hasHourlyForecasts: !!weatherHourly[0]?.hourlyForecasts,
+            hourlyForecastsKeys: weatherHourly[0]?.hourlyForecasts ? Object.keys(weatherHourly[0].hourlyForecasts) : 'no hourlyForecasts',
+            hasHourly: !!weatherHourly[0]?.hourlyForecasts?.hourly,
+            hourlyType: typeof weatherHourly[0]?.hourlyForecasts?.hourly,
+            hourlyIsArray: Array.isArray(weatherHourly[0]?.hourlyForecasts?.hourly),
+            hourlyLength: weatherHourly[0]?.hourlyForecasts?.hourly?.length || 0,
+            fullFirstPoint: JSON.stringify(weatherHourly[0], null, 2).substring(0, 1000)
+          });
+          
           weatherHourly.forEach((point, idx) => {
             const hourlyLength = point.hourlyForecasts?.hourly?.length || 0;
             const hasCurrent = !!point.hourlyForecasts?.current;
             console.log(`Point ${idx}: ${point.lat},${point.lon} - hourlyLength=${hourlyLength}, hasCurrent=${hasCurrent}`);
             if (hourlyLength > 0) {
-              console.log(`  First hourly: temp=${point.hourlyForecasts.hourly[0].temp}°C, condition=${point.hourlyForecasts.hourly[0].weather?.main}`);
-              console.log(`  Last hourly: temp=${point.hourlyForecasts.hourly[hourlyLength-1].temp}°C`);
+              console.log(`  ✅ First hourly: temp=${point.hourlyForecasts.hourly[0].temp}°C, condition=${point.hourlyForecasts.hourly[0].weather?.main}`);
+              console.log(`  ✅ Last hourly: temp=${point.hourlyForecasts.hourly[hourlyLength-1].temp}°C`);
+            } else {
+              console.error(`  ❌ Point ${idx} has EMPTY hourly array!`, {
+                hasHourlyForecasts: !!point.hourlyForecasts,
+                hourlyForecastsKeys: point.hourlyForecasts ? Object.keys(point.hourlyForecasts) : 'no hourlyForecasts',
+                hasHourly: !!point.hourlyForecasts?.hourly,
+                hourlyType: typeof point.hourlyForecasts?.hourly,
+                hourlyIsArray: Array.isArray(point.hourlyForecasts?.hourly)
+              });
             }
           });
           
           const pointsWithHourly = weatherHourly.filter(p => (p.hourlyForecasts?.hourly?.length || 0) > 0).length;
-          console.log(`Points with hourly data: ${pointsWithHourly}/${weatherHourly.length}`);
+          console.log(`✅ Points with hourly data: ${pointsWithHourly}/${weatherHourly.length}`);
+          if (pointsWithHourly === 0) {
+            console.error(`🚨 CRITICAL: NO points have hourly data even though backend returned it!`);
+          }
         }
         
         if (!weatherHourly || weatherHourly.length === 0) {
@@ -817,29 +840,61 @@ export default function App() {
       {/* Timeline Slider - Preview different departure times */}
       {routeCoordinates.length > 0 && (
         <View style={styles.sliderContainer}>
-          {/* Estimated Arrival Time and Distance - Above Slider */}
-          {routeDuration && (
-            <View style={styles.arrivalInfo}>
-              <Text style={styles.arrivalLabel}>Estimated Arrival:</Text>
-              <Text style={styles.arrivalTime}>
-                {(() => {
-                  // Base departure time is NOW, plus slider offset
-                  const departureTime = new Date(Date.now() + selectedTime * 60 * 60 * 1000);
-                  const arrivalTime = new Date(departureTime.getTime() + routeDuration * 1000);
-                  const hours = arrivalTime.getHours();
-                  const minutes = arrivalTime.getMinutes();
-                  const ampm = hours >= 12 ? 'PM' : 'AM';
-                  const displayHours = hours % 12 || 12;
-                  const displayMinutes = minutes.toString().padStart(2, '0');
-                  return `${displayHours}:${displayMinutes} ${ampm}`;
-                })()}
-              </Text>
-              <Text style={styles.durationText}>
-                ({Math.round(routeDuration / 60)} min
-                {routeDistance ? ` • ${(routeDistance / 1609.34).toFixed(1)} mi` : ''})
-              </Text>
-            </View>
-          )}
+          {/* Departure Time, Estimated Arrival Time and Distance - Above Slider */}
+          {routeDuration && (() => {
+            // Calculate departure time (NOW + slider offset)
+            const departureTime = new Date(Date.now() + selectedTime * 60 * 60 * 1000);
+            const arrivalTime = new Date(departureTime.getTime() + routeDuration * 1000);
+            
+            // Format time helper
+            const formatTime = (date) => {
+              const hours = date.getHours();
+              const minutes = date.getMinutes();
+              const ampm = hours >= 12 ? 'PM' : 'AM';
+              const displayHours = hours % 12 || 12;
+              const displayMinutes = minutes.toString().padStart(2, '0');
+              return `${displayHours}:${displayMinutes} ${ampm}`;
+            };
+            
+            // Format duration as hours and minutes
+            const totalMinutes = Math.round(routeDuration / 60);
+            const durationHours = Math.floor(totalMinutes / 60);
+            const durationMinutes = totalMinutes % 60;
+            const durationText = durationHours > 0 
+              ? `${durationHours}h ${durationMinutes}m`
+              : `${durationMinutes}m`;
+            
+            // Format distance in both miles and kilometers
+            const miles = routeDistance ? (routeDistance / 1609.34).toFixed(1) : null;
+            const kilometers = routeDistance ? (routeDistance / 1000).toFixed(1) : null;
+            const distanceText = miles && kilometers 
+              ? `${miles} mi / ${kilometers} km`
+              : miles 
+                ? `${miles} mi`
+                : '';
+            
+            return (
+              <View style={styles.arrivalInfo}>
+                {/* Departure Time */}
+                <View style={styles.timeRow}>
+                  <Text style={styles.arrivalLabel}>Departure Time:</Text>
+                  <Text style={styles.arrivalTime}>{formatTime(departureTime)}</Text>
+                </View>
+                
+                {/* Estimated Arrival Time */}
+                <View style={styles.timeRow}>
+                  <Text style={styles.arrivalLabel}>Estimated Arrival:</Text>
+                  <Text style={styles.arrivalTime}>{formatTime(arrivalTime)}</Text>
+                </View>
+                
+                {/* Duration and Distance */}
+                <Text style={styles.durationText}>
+                  {durationText}
+                  {distanceText ? ` • ${distanceText}` : ''}
+                </Text>
+              </View>
+            );
+          })()}
           <Text style={styles.sliderLabel}>
             Preview Weather: {selectedTime === 0 ? 'Current' : `+${selectedTime}h`} from departure
           </Text>
@@ -908,28 +963,34 @@ const styles = StyleSheet.create({
     borderBottomColor: '#ddd',
   },
   arrivalInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: 'column',
     marginBottom: 10,
-    padding: 8,
+    padding: 10,
     backgroundColor: '#f0f8ff',
     borderRadius: 5,
+  },
+  timeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 5,
   },
   arrivalLabel: {
     fontSize: 14,
     fontWeight: '600',
     color: '#333',
     marginRight: 8,
+    minWidth: 130,
   },
   arrivalTime: {
     fontSize: 16,
     fontWeight: 'bold',
     color: '#1976d2',
-    marginRight: 8,
   },
   durationText: {
     fontSize: 12,
     color: '#666',
+    marginTop: 4,
+    fontStyle: 'italic',
   },
   input: {
     flex: 1,
