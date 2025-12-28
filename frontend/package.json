@@ -1,5 +1,5 @@
 {
-  "name": "weatherroute-frontend",
+  "name": "roadweather-frontend",
   "version": "1.0.0",
   "main": "node_modules/expo/AppEntry.js",
   "scripts": {
@@ -7,7 +7,8 @@
     "start:web": "expo start --web",
     "android": "expo start --android",
     "ios": "expo start --ios",
-    "web": "expo start --web"
+    "web": "expo start --web",
+    "build:web": "expo export:web && powershell -ExecutionPolicy Bypass -File copy-favicons.ps1"
   },
   "dependencies": {
     "@expo/webpack-config": "^19.0.0",
