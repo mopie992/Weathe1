@@ -1,20 +1,17 @@
 import axios from 'axios';
 
-// API URL - automatically switches between local and production
-// Set EXPO_PUBLIC_API_URL environment variable for production
-// For local dev: use localhost:3000
-// For production: use Railway URL
-const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || 
-  (typeof window !== 'undefined' 
-    ? (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
-        ? 'http://localhost:3000/api'  // Local web development
-        : 'https://weathe1-production.up.railway.app/api')  // Production: Always use Railway backend
-    : (__DEV__ ? 'http://localhost:3000/api' : 'https://weathe1-production.up.railway.app/api'));  // Mobile: local or Railway
+// API URL - Use Railway backend by default (works for both local dev and production)
+// To use local backend, set EXPO_PUBLIC_API_URL=http://localhost:3000/api in .env
+// For production: uses Railway URL (https://weathe1-production.up.railway.app/api)
+const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL ||
+  (typeof window !== 'undefined'
+    ? (window.location.hostname === 'roadweather.app'
+        ? 'https://weathe1-production.up.railway.app/api'  // Production domain
+        : 'https://weathe1-production.up.railway.app/api')  // Default: Always use Railway backend (works for local dev too)
+    : 'https://weathe1-production.up.railway.app/api');  // Mobile: Use Railway backend
 
 // Log API URL for debugging
 if (typeof window !== 'undefined') {
-  console.log('API Base URL:', API_BASE_URL);
-  console.log('Hostname:', window.location.hostname);
 }
 
 /**

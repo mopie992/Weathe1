@@ -12,12 +12,11 @@ router.get('/test-forecast', async (req, res) => {
   try {
     const { lat = 40.7128, lon = -74.0060 } = req.query;
     const openweatherKey = process.env.OPENWEATHER_KEY;
-    
+
     if (!openweatherKey) {
       return res.status(500).json({ error: 'OpenWeather API key not configured' });
     }
 
-    console.log(`Testing forecast API for ${lat},${lon}`);
     const forecastResponse = await axios.get('https://api.openweathermap.org/data/2.5/forecast', {
       params: {
         lat,
@@ -51,25 +50,26 @@ router.get('/test-forecast', async (req, res) => {
 
 /**
  * GET /api/weather
- * Returns hourly forecasted weather for coordinates along a route (0-48 hours)
+ * Returns hourly forecasted weather for coordinates along a route (0-36 hours)
  * Uses Current Weather API + 5 Day Forecast API (free tier)
  * Query params: coordinates (JSON array of {lat, lon})
  * Returns: Array of weather data with hourly forecasts for each coordinate
+ * Note: OpenWeather provides 3-hour intervals. We limit to 12 items (36 hours) to reduce API calls.
  */
 router.get('/', async (req, res) => {
   try {
     const { coordinates, clearCache } = req.query;
 
     if (!coordinates) {
-      return res.status(400).json({ 
-        error: 'Missing required parameter: coordinates' 
+      return res.status(400).json({
+        error: 'Missing required parameter: coordinates'
       });
     }
 
     const openweatherKey = process.env.OPENWEATHER_KEY;
     if (!openweatherKey) {
-      return res.status(500).json({ 
-        error: 'OpenWeather API key not configured' 
+      return res.status(500).json({
+        error: 'OpenWeather API key not configured'
       });
     }
 
@@ -77,14 +77,14 @@ router.get('/', async (req, res) => {
     try {
       coordsArray = JSON.parse(coordinates);
     } catch (e) {
-      return res.status(400).json({ 
-        error: 'Invalid coordinates format. Expected JSON array.' 
+      return res.status(400).json({
+        error: 'Invalid coordinates format. Expected JSON array.'
       });
     }
 
     if (!Array.isArray(coordsArray) || coordsArray.length === 0) {
-      return res.status(400).json({ 
-        error: 'Coordinates must be a non-empty array' 
+      return res.status(400).json({
+        error: 'Coordinates must be a non-empty array'
       });
     }
 
@@ -94,12 +94,11 @@ router.get('/', async (req, res) => {
       console.warn(`⚠️ Request has ${coordsArray.length} coordinates, limiting to ${MAX_COORDINATES}`);
       // Keep first, last, and evenly sample the rest
       const step = Math.floor(coordsArray.length / MAX_COORDINATES);
-      coordsArray = coordsArray.filter((_, index) => 
-        index === 0 || 
-        index === coordsArray.length - 1 || 
+      coordsArray = coordsArray.filter((_, index) =>
+        index === 0 ||
+        index === coordsArray.length - 1 ||
         index % step === 0
       );
-      console.log(`Reduced to ${coordsArray.length} coordinates for weather fetching`);
     }
 
     const weatherData = [];
@@ -111,7 +110,7 @@ router.get('/', async (req, res) => {
     const weatherPromises = coordsArray.map(async (coord) => {
       try {
         let { lat, lon } = coord;
-        
+
         // CRITICAL: Fix coordinates that are 10x too large (common issue from frontend)
         // Valid latitude: -90 to 90, Valid longitude: -180 to 180
         if (Math.abs(lat) > 90) {
@@ -122,44 +121,38 @@ router.get('/', async (req, res) => {
           console.warn(`⚠️ Fixing longitude ${lon} (too large), dividing by 10`);
           lon = lon / 10;
         }
-        
+
         // Validate coordinates are in valid range
         if (isNaN(lat) || isNaN(lon) || lat < -90 || lat > 90 || lon < -180 || lon > 180) {
           console.error(`❌ Invalid coordinates after fix: ${lat},${lon} (original: ${coord.lat},${coord.lon})`);
           throw new Error(`Invalid coordinates: ${lat},${lon}`);
         }
-        
-        console.log(`📍 Using coordinates: ${lat},${lon} (original: ${coord.lat},${coord.lon})`);
+
 
       // Cache key: lat/lon only (not timestamp, since we fetch all hours)
       const cacheKey = `weather:${lat}:${lon}`;
       let hourlyForecasts = null;
-      
+
       // Only check cache if clearCache is not requested
       if (!shouldClearCache) {
         hourlyForecasts = await getCachedWeather(cacheKey);
         const hourlyLength = hourlyForecasts?.hourly?.length || 0;
-        console.log(`🔍 Cache check for ${lat},${lon}: hourlyLength=${hourlyLength}`);
 
         // ALWAYS refetch if hourly array is empty (even if cached)
         if (hourlyForecasts && hourlyLength === 0) {
           console.warn(`⚠️ Cache has empty hourly array for ${lat},${lon}, fetching fresh data`);
           hourlyForecasts = null; // Force refetch
         } else if (hourlyForecasts && hourlyLength > 0) {
-          console.log(`✅ Using cached data for ${lat},${lon} with ${hourlyLength} hourly forecasts`);
         } else {
-          console.log(`📥 No cache found for ${lat},${lon}, will fetch fresh data`);
         }
       } else {
-        console.log(`🗑️ Cache clear requested for ${lat},${lon}, fetching fresh data`);
       }
 
       if (!hourlyForecasts) {
           try {
             // Use Current Weather API + Forecast API (free tier)
             let currentResponse, forecastResponse;
-            
-            console.log(`🌐 Fetching weather for ${lat},${lon}...`);
+
             try {
               [currentResponse, forecastResponse] = await Promise.all([
                 // Current weather
@@ -172,7 +165,7 @@ router.get('/', async (req, res) => {
                   },
                   timeout: 15000 // Increased timeout for OpenWeather API
                 }),
-                // 5 day forecast (3-hour intervals, we'll convert to hourly)
+                // Forecast API (3-hour intervals, limited to 36 hours / 12 items to reduce API calls)
                 axios.get('https://api.openweathermap.org/data/2.5/forecast', {
                   params: {
                     lat,
@@ -183,7 +176,6 @@ router.get('/', async (req, res) => {
                   timeout: 15000 // Increased timeout for OpenWeather API
                 })
               ]);
-              console.log(`✅ API calls completed for ${lat},${lon}`);
             } catch (apiError) {
               console.error(`❌ API call error for ${lat},${lon}:`, {
                 message: apiError.message,
@@ -194,18 +186,7 @@ router.get('/', async (req, res) => {
               });
               throw apiError;
             }
-            
-            // Log successful API calls
-            console.log(`API calls successful for ${lat},${lon}:`, {
-              currentStatus: currentResponse?.status,
-              forecastStatus: forecastResponse?.status,
-              forecastHasData: !!forecastResponse?.data,
-              forecastListLength: forecastResponse?.data?.list?.length || 0,
-              forecastResponseKeys: forecastResponse?.data ? Object.keys(forecastResponse.data) : 'no data',
-              forecastResponseCode: forecastResponse?.data?.cod,
-              forecastResponseMessage: forecastResponse?.data?.message
-            });
-            
+
             // Check for API errors in response
             if (forecastResponse?.data?.cod && forecastResponse.data.cod !== '200' && forecastResponse.data.cod !== 200) {
               console.error(`❌ OpenWeather API error for ${lat},${lon}:`, {
@@ -231,64 +212,43 @@ router.get('/', async (req, res) => {
               hourly: []
             };
 
-            // Process forecast (3-hour intervals, convert to hourly estimates)
-            console.log(`📊 Processing forecast for ${lat},${lon}...`);
-            console.log(`  Forecast response status:`, forecastResponse?.status);
-            console.log(`  Forecast response has data:`, !!forecastResponse?.data);
-            if (forecastResponse?.data) {
-              console.log(`  Forecast response keys:`, Object.keys(forecastResponse.data));
-              console.log(`  Forecast response.list exists:`, !!forecastResponse.data.list);
-              console.log(`  Forecast response.list length:`, forecastResponse.data.list?.length || 0);
-              if (forecastResponse.data.list && forecastResponse.data.list.length > 0) {
-                console.log(`  First forecast item sample:`, {
-                  dt: forecastResponse.data.list[0].dt,
-                  hasMain: !!forecastResponse.data.list[0].main,
-                  hasWeather: !!forecastResponse.data.list[0].weather,
-                  weatherLength: forecastResponse.data.list[0].weather?.length || 0
-                });
-              }
-            }
-            
             // Process forecast - API test shows this works, so process it
             if (forecastResponse && forecastResponse.data && forecastResponse.data.list) {
               const forecastList = forecastResponse.data.list;
-              console.log(`✅ Forecast data received for ${lat},${lon}: ${forecastList.length} intervals`);
-              
-              // CRITICAL: Log the full first item structure to debug
-              if (forecastList.length > 0) {
-                console.log(`🔍 FULL first forecast item structure:`, JSON.stringify(forecastList[0], null, 2));
-              }
-              
+
               if (Array.isArray(forecastList) && forecastList.length > 0) {
-                const processed = forecastList.slice(0, 16).map((item, index) => {
+                // Limit to 12 items (36 hours) to reduce API calls and keep forecasts accurate
+                // OpenWeather provides 3-hour intervals, so 12 items = 36 hours
+                const maxItems = Math.min(forecastList.length, 12);
+                const processed = forecastList.slice(0, maxItems).map((item, index) => {
                   // Validate item
                   if (!item) {
                     console.warn(`⚠️ Null item at index ${index} for ${lat},${lon}`);
                     return null;
                   }
-                  
+
                   // More lenient validation - log what's missing instead of filtering
                   if (!item.main) {
                     console.error(`❌ Missing main at index ${index} for ${lat},${lon} - item keys:`, Object.keys(item));
                     return null;
                   }
-                  
+
                   // Check weather array - be more lenient
                   if (!item.weather) {
                     console.error(`❌ Missing weather at index ${index} for ${lat},${lon}`);
                     return null;
                   }
-                  
+
                   if (!Array.isArray(item.weather)) {
                     console.error(`❌ Weather is not array at index ${index} for ${lat},${lon}, type:`, typeof item.weather);
                     return null;
                   }
-                  
+
                   if (item.weather.length === 0) {
                     console.error(`❌ Weather array is empty at index ${index} for ${lat},${lon}`);
                     return null;
                   }
-                  
+
                   // All validations passed - create the hourly forecast object
                   const hourlyItem = {
                     temp: item.main.temp,
@@ -300,15 +260,13 @@ router.get('/', async (req, res) => {
                     precip: { '1h': item.rain?.['3h'] ? item.rain['3h'] / 3 : item.snow?.['3h'] ? item.snow['3h'] / 3 : 0 },
                     timestamp: item.dt
                   };
-                  
-                  console.log(`✅ Processed item ${index} for ${lat},${lon}: temp=${hourlyItem.temp}°C, condition=${hourlyItem.weather?.main}`);
+
                   return hourlyItem;
                 });
-                
+
                 hourlyForecasts.hourly = processed.filter(item => item !== null);
-                
-                console.log(`✅ Successfully processed ${hourlyForecasts.hourly.length} hourly forecasts for ${lat},${lon} (from ${forecastList.length} raw items, ${processed.length - hourlyForecasts.hourly.length} filtered out)`);
-                
+
+
                 // CRITICAL: If all items were filtered out, something is wrong - log everything
                 if (hourlyForecasts.hourly.length === 0) {
                   console.error(`❌ CRITICAL: All forecast items were filtered out for ${lat},${lon}!`);
@@ -325,11 +283,12 @@ router.get('/', async (req, res) => {
                     weatherContent: item.weather,
                     allKeys: Object.keys(item)
                   })));
-                  
+
                   // EMERGENCY FALLBACK: If processing failed but we have raw data, try to use it anyway
                   if (forecastList.length > 0 && forecastList[0] && forecastList[0].main && forecastList[0].weather) {
                     console.warn(`⚠️ Attempting emergency fallback - using raw forecast items directly`);
-                    hourlyForecasts.hourly = forecastList.slice(0, 16).map(item => ({
+                    const maxItems = Math.min(forecastList.length, 12);
+                    hourlyForecasts.hourly = forecastList.slice(0, maxItems).map(item => ({
                       temp: item.main?.temp || 20,
                       feels_like: item.main?.feels_like || 20,
                       humidity: item.main?.humidity || 50,
@@ -339,11 +298,7 @@ router.get('/', async (req, res) => {
                       precip: { '1h': item.rain?.['3h'] ? item.rain['3h'] / 3 : item.snow?.['3h'] ? item.snow['3h'] / 3 : 0 },
                       timestamp: item.dt
                     }));
-                    console.log(`⚠️ Emergency fallback created ${hourlyForecasts.hourly.length} items`);
                   }
-                } else {
-                  console.log(`✅ Sample hourly data (first):`, JSON.stringify(hourlyForecasts.hourly[0], null, 2));
-                  console.log(`✅ Sample hourly data (last):`, JSON.stringify(hourlyForecasts.hourly[hourlyForecasts.hourly.length - 1], null, 2));
                 }
               } else {
                 console.error(`❌ Forecast list is not a valid array for ${lat},${lon}:`, {
@@ -368,20 +323,11 @@ router.get('/', async (req, res) => {
               });
               hourlyForecasts.hourly = [];
             }
-            
-            // CRITICAL: Log final state before returning
-            console.log(`🔍 Final hourlyForecasts for ${lat},${lon}:`, {
-              hasCurrent: !!hourlyForecasts.current,
-              hasHourly: !!hourlyForecasts.hourly,
-              hourlyLength: hourlyForecasts.hourly?.length || 0,
-              hourlySample: hourlyForecasts.hourly?.[0] || 'none'
-            });
 
             // CRITICAL: Only cache if we have hourly data
             const hourlyCount = hourlyForecasts.hourly?.length || 0;
             if (hourlyCount > 0) {
               await setCachedWeather(cacheKey, hourlyForecasts, 3600);
-              console.log(`✅ Cached ${hourlyCount} hourly forecasts for ${lat},${lon}`);
             } else {
               console.error(`❌ NOT caching - hourly array is empty for ${lat},${lon}`);
             }
@@ -413,22 +359,12 @@ router.get('/', async (req, res) => {
           }
         }
 
-        // CRITICAL: Log what we're returning
         const finalHourlyLength = hourlyForecasts.hourly?.length || 0;
-        console.log(`📤 Returning for ${lat},${lon}: hourlyLength=${finalHourlyLength}`);
-        
+
         if (finalHourlyLength === 0) {
           console.error(`🚨 ERROR: Returning empty hourly array for ${lat},${lon}!`);
-          console.error(`🚨 Debug info:`, {
-            hasCurrent: !!hourlyForecasts.current,
-            hasHourly: !!hourlyForecasts.hourly,
-            hourlyIsArray: Array.isArray(hourlyForecasts.hourly),
-            hourlyType: typeof hourlyForecasts.hourly
-          });
-        } else {
-          console.log(`✅ Successfully returning ${finalHourlyLength} hourly forecasts for ${lat},${lon}`);
         }
-        
+
         return {
           lat,
           lon,
@@ -465,9 +401,9 @@ router.get('/', async (req, res) => {
     res.json(weatherData);
   } catch (error) {
     console.error('Weather API error:', error.message);
-    res.status(500).json({ 
+    res.status(500).json({
       error: 'Failed to fetch weather data',
-      details: error.message 
+      details: error.message
     });
   }
 });

@@ -2,7 +2,7 @@ import React from 'react';
 import { StyleSheet, View, Text } from 'react-native';
 import Slider from '@react-native-community/slider';
 
-const TimelineSlider = ({ value, onValueChange, maxHours = 48 }) => {
+const TimelineSlider = ({ value, onValueChange, maxHours = 12 }) => {
   const formatTimeLabel = (hours) => {
     if (hours === 0) return 'Now';
     if (hours === 1) return '+1 hour';

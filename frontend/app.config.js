@@ -1,14 +1,8 @@
 // Load environment variables
 const env = require('./load-env');
 
-// Log to verify .env is loaded (only in development)
-if (process.env.NODE_ENV !== 'production') {
-  console.log('Environment variables loaded:', {
-    hasMapboxToken: !!env.EXPO_PUBLIC_MAPBOX_TOKEN,
-    hasApiUrl: !!env.EXPO_PUBLIC_API_URL,
-    mapboxTokenPreview: env.EXPO_PUBLIC_MAPBOX_TOKEN ? 
-      env.EXPO_PUBLIC_MAPBOX_TOKEN.substring(0, 20) + '...' : 'not set'
-  });
+if (env.EXPO_PUBLIC_MAPBOX_TOKEN && !env.EXPO_PUBLIC_MAPBOX_TOKEN.startsWith('pk.')) {
+  console.error('Mapbox token does not start with "pk." and may be invalid.');
 }
 
 module.exports = {

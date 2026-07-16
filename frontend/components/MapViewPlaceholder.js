@@ -3,13 +3,13 @@ import { StyleSheet, View, Text, ScrollView } from 'react-native';
 
 // Placeholder map component for Expo Go
 // react-native-maps doesn't work in Expo Go - requires custom build
-const MapViewPlaceholder = ({ currentLocation, routeCoordinates, weatherData }) => {
+const MapViewPlaceholder = ({ currentLocation, routeCoordinates, weatherData, temperatureUnit, onMarkerClick }) => {
   return (
     <View style={styles.container}>
       <View style={styles.placeholder}>
         <Text style={styles.title}>🗺️ Map View</Text>
         <Text style={styles.subtitle}>
-          {currentLocation 
+          {currentLocation
             ? `Location: ${currentLocation.latitude.toFixed(4)}, ${currentLocation.longitude.toFixed(4)}`
             : 'Getting location...'}
         </Text>

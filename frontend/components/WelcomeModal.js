@@ -28,7 +28,7 @@ const WelcomeModal = () => {
     if (Platform.OS === 'web' && typeof window !== 'undefined') {
       // Use dangerouslySetInnerHTML to inject HTML img tag for web
       return (
-        <div 
+        <div
           style={{
             marginBottom: 24,
             alignItems: 'center',
@@ -59,18 +59,23 @@ const WelcomeModal = () => {
               {renderLogo()}
             </View>
           )}
-          
+
           {/* Title */}
           <Text style={styles.title}>Welcome to RoadWeather</Text>
-          
+
           {/* Content */}
           <Text style={styles.content}>
-            RoadWeather shows you what weather you will encounter along your route, not just at your start or destination. Enter your trip to view predictive weather conditions ahead, helping you anticipate rain, snow, storms, and hazards before you drive into them. Plan smarter routes, adjust departure times, and avoid surprises on the road.
+            RoadWeather helps visualize weather you may encounter along your route, not just at your start or destination. By showing predictive weather conditions ahead, it can help you anticipate potential rain, snow, storms, and road hazards. Use it to plan routes, adjust departure times, and stay better informed while traveling.
           </Text>
-          
+
+          {/* Terms of Use */}
+          <Text style={styles.termsText}>
+            By using RoadWeather, you agree to our Terms of Use.
+          </Text>
+
           {/* Close Button */}
           <TouchableOpacity style={styles.button} onPress={handleClose}>
-            <Text style={styles.buttonText}>Ok Got it</Text>
+            <Text style={styles.buttonText}>OK</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -120,7 +125,15 @@ const styles = StyleSheet.create({
     lineHeight: 26,
     color: '#333',
     textAlign: 'center',
-    marginBottom: 32,
+    marginBottom: 20,
+  },
+  termsText: {
+    fontSize: 14,
+    lineHeight: 20,
+    color: '#666',
+    textAlign: 'center',
+    marginBottom: 24,
+    fontStyle: 'italic',
   },
   button: {
     backgroundColor: '#1976d2',

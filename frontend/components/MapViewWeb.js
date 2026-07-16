@@ -14,21 +14,27 @@ const getMapboxToken = () => {
   if (process.env.EXPO_PUBLIC_MAPBOX_TOKEN) {
     return process.env.EXPO_PUBLIC_MAPBOX_TOKEN;
   }
-  // Try window (for runtime)
+  // Try window (for runtime - set by webpack DefinePlugin)
   if (typeof window !== 'undefined' && window.EXPO_PUBLIC_MAPBOX_TOKEN) {
     return window.EXPO_PUBLIC_MAPBOX_TOKEN;
   }
+  // Last resort: try to read from a global variable that might be set
+  if (typeof window !== 'undefined' && window.__MAPBOX_TOKEN__) {
+    return window.__MAPBOX_TOKEN__;
+  }
+  console.warn('⚠️ Mapbox token not found in any source!');
   return '';
 };
 
 const MAPBOX_TOKEN = getMapboxToken();
 
-const MapViewWeb = ({ currentLocation, routeCoordinates, weatherData }) => {
+const MapViewWeb = ({ currentLocation, routeCoordinates, weatherData, temperatureUnit = 'C', onMarkerClick }) => {
   const mapContainer = useRef(null);
   const map = useRef(null);
   const markersRef = useRef([]);
   const [mapboxgl, setMapboxgl] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [mapError, setMapError] = useState(null);
 
   // Load Mapbox GL from CDN
   useEffect(() => {
@@ -77,49 +83,43 @@ const MapViewWeb = ({ currentLocation, routeCoordinates, weatherData }) => {
     if (!map.current && mapContainer.current) {
       // Try multiple ways to get the token (Expo loads env vars at build time)
       let token = MAPBOX_TOKEN;
-      
-      // Debug: Log all possible sources
-      console.log('Token lookup debug:', {
-        MAPBOX_TOKEN: MAPBOX_TOKEN ? 'set (' + MAPBOX_TOKEN.substring(0, 20) + '...)' : 'not set',
-        processEnv: process.env.EXPO_PUBLIC_MAPBOX_TOKEN ? 'set' : 'not set',
-        constantsExtra: Constants.expoConfig?.extra?.mapboxToken ? 'set' : 'not set',
-        windowVar: typeof window !== 'undefined' && window.EXPO_PUBLIC_MAPBOX_TOKEN ? 'set' : 'not set',
-        allExpoPublicKeys: Object.keys(process.env).filter(k => k.startsWith('EXPO_PUBLIC_'))
-      });
-      
+
       // Try Constants.expoConfig.extra first (from app.config.js)
       if (!token && Constants.expoConfig?.extra?.mapboxToken) {
         token = Constants.expoConfig.extra.mapboxToken;
-        console.log('Using token from Constants.expoConfig.extra');
       }
-      
+
       // Try process.env
       if (!token && process.env.EXPO_PUBLIC_MAPBOX_TOKEN) {
         token = process.env.EXPO_PUBLIC_MAPBOX_TOKEN;
-        console.log('Using token from process.env.EXPO_PUBLIC_MAPBOX_TOKEN');
       }
-      
+
       // Try window variable
       if (!token && typeof window !== 'undefined' && window.EXPO_PUBLIC_MAPBOX_TOKEN) {
         token = window.EXPO_PUBLIC_MAPBOX_TOKEN;
-        console.log('Using token from window.EXPO_PUBLIC_MAPBOX_TOKEN');
       }
-      
+
       if (!token) {
-        console.error('Mapbox token not found! Set EXPO_PUBLIC_MAPBOX_TOKEN environment variable.');
-        console.log('Full Constants.expoConfig:', Constants.expoConfig);
+        console.error('❌ Mapbox token not found! Set EXPO_PUBLIC_MAPBOX_TOKEN environment variable.');
+        setMapError('Mapbox token not configured. Please check your .env file and restart the dev server.');
         return;
       }
-      
-      console.log('Mapbox token found, initializing map...');
+
+      // Validate token format (should start with pk.)
+      if (!token.startsWith('pk.')) {
+        console.error('❌ Invalid Mapbox token format! Token should start with "pk."');
+        setMapError('Invalid Mapbox token format. Please check your .env file.');
+        return;
+      }
+
       mapboxgl.accessToken = token;
-      
+
       // Use currentLocation if available, otherwise use a default center (North America)
-      const center = currentLocation 
+      const center = currentLocation
         ? [currentLocation.longitude, currentLocation.latitude]
         : [-98, 39]; // Default: center of North America (US)
       const zoom = currentLocation ? 12 : 4; // Zoomed in if location available, regional view otherwise
-      
+
       map.current = new mapboxgl.Map({
         container: mapContainer.current,
         style: 'mapbox://styles/mapbox/streets-v12',
@@ -129,7 +129,6 @@ const MapViewWeb = ({ currentLocation, routeCoordinates, weatherData }) => {
 
       // Handle map load events
       map.current.on('load', () => {
-        console.log('✅ Map loaded successfully');
         setLoading(false);
       });
 
@@ -177,7 +176,7 @@ const MapViewWeb = ({ currentLocation, routeCoordinates, weatherData }) => {
       const marker = new mapboxgl.Marker({ color: '#007AFF' })
         .setLngLat([currentLocation.longitude, currentLocation.latitude])
         .addTo(map.current);
-      
+
       markersRef.current.push({ type: 'currentLocation', marker });
     } catch (error) {
       console.error('Error updating map center:', error);
@@ -187,6 +186,25 @@ const MapViewWeb = ({ currentLocation, routeCoordinates, weatherData }) => {
   // Update route line
   useEffect(() => {
     if (!map.current || !routeCoordinates || routeCoordinates.length === 0 || !mapboxgl) return;
+
+    // Check if map style is loaded before adding route
+    const addRoute = () => {
+      // Check if map is fully loaded and style is ready
+      if (!map.current.loaded() || !map.current.isStyleLoaded()) {
+        // Wait for map to load
+        if (map.current.loaded()) {
+          // Map is loaded but style might not be, wait for style
+          map.current.once('styledata', () => {
+            addRoute();
+          });
+        } else {
+          // Map not loaded yet, wait for load event
+          map.current.once('load', () => {
+            addRoute();
+          });
+        }
+        return;
+      }
 
     try {
       // Remove existing route source if it exists
@@ -200,7 +218,7 @@ const MapViewWeb = ({ currentLocation, routeCoordinates, weatherData }) => {
         .map(coord => {
           // Handle different coordinate formats (lat/lon, Lat/Lon, latitude/longitude)
           let lon, lat;
-          
+
           if (coord.lon !== undefined && coord.lat !== undefined) {
             lon = typeof coord.lon === 'number' ? coord.lon : parseFloat(coord.lon);
             lat = typeof coord.lat === 'number' ? coord.lat : parseFloat(coord.lat);
@@ -218,7 +236,7 @@ const MapViewWeb = ({ currentLocation, routeCoordinates, weatherData }) => {
             console.warn('Unknown coordinate format:', coord);
             return null;
           }
-          
+
           // Fix coordinates that are 10x too large (common polyline decoding issue)
           if (Math.abs(lat) > 90) {
             lat = lat / 10;
@@ -226,7 +244,7 @@ const MapViewWeb = ({ currentLocation, routeCoordinates, weatherData }) => {
           if (Math.abs(lon) > 180) {
             lon = lon / 10;
           }
-          
+
           // Validate range
           if (isNaN(lon) || isNaN(lat) || lon < -180 || lon > 180 || lat < -90 || lat > 90) {
             console.warn('Invalid coordinate after fix:', { lat, lon, original: coord });
@@ -235,7 +253,7 @@ const MapViewWeb = ({ currentLocation, routeCoordinates, weatherData }) => {
           return [lon, lat];
         })
         .filter(coord => coord !== null); // Remove invalid coordinates
-      
+
       map.current.addSource('route', {
         type: 'geojson',
         data: {
@@ -289,23 +307,28 @@ const MapViewWeb = ({ currentLocation, routeCoordinates, weatherData }) => {
     } catch (error) {
       console.error('Error adding route:', error);
     }
+    };
+
+    // Call addRoute function
+    addRoute();
   }, [routeCoordinates, mapboxgl]);
+
+  // Helper function to convert temperature
+  const convertTemp = (tempC) => {
+    if (temperatureUnit === 'F') {
+      return Math.round((tempC * 9/5) + 32);
+    }
+    return Math.round(tempC);
+  };
 
   // Update weather markers
   useEffect(() => {
     if (!map.current || !weatherData || weatherData.length === 0 || !mapboxgl) {
-      console.log('Weather markers skipped:', {
-        hasMap: !!map.current,
-        hasWeatherData: !!weatherData,
-        weatherDataLength: weatherData?.length || 0,
-        hasMapboxgl: !!mapboxgl
-      });
       return;
     }
 
     try {
-      console.log('Adding weather markers for', weatherData.length, 'points');
-      
+
       // Remove existing markers completely
       if (markersRef.current && markersRef.current.length > 0) {
         markersRef.current.forEach(marker => {
@@ -392,10 +415,43 @@ const MapViewWeb = ({ currentLocation, routeCoordinates, weatherData }) => {
           el.style.boxShadow = '0 2px 4px rgba(0,0,0,0.3)'; // Make markers more visible
           el.style.padding = '6px 4px';
           el.style.boxSizing = 'border-box';
+          el.style.transition = 'box-shadow 0.2s, border-width 0.2s';
+          el.style.transformOrigin = 'center center';
+
+          // Add hover effect (using box-shadow and border instead of transform to avoid positioning issues)
+          el.addEventListener('mouseenter', () => {
+            el.style.boxShadow = '0 4px 12px rgba(0,0,0,0.5)';
+            el.style.borderWidth = '3px';
+            el.style.zIndex = '1001'; // Bring to front on hover
+          });
+          el.addEventListener('mouseleave', () => {
+            el.style.boxShadow = '0 2px 4px rgba(0,0,0,0.3)';
+            el.style.borderWidth = '2px';
+            el.style.zIndex = '1000';
+          });
+
+          // Add click handler
+          if (onMarkerClick) {
+            el.addEventListener('click', () => {
+              onMarkerClick(item);
+            });
+          }
+
+          const displayTemp = convertTemp(weather.temp);
+
+          // Determine text color based on background color for better contrast
+          // White/snow backgrounds need dark text, others need light text
+          const condition = weather.condition.toLowerCase();
+          const isLightBackground = condition.includes('snow') || condition.includes('clear');
+          const timeTextColor = isLightBackground ? '#333' : '#fff';
+          const timeTextShadow = isLightBackground
+            ? '0 1px 2px rgba(255,255,255,0.8)'
+            : '0 1px 2px rgba(0,0,0,0.8)';
+
           el.innerHTML = `
             <div style="font-size: 18px; margin-bottom: 2px;">${icon}</div>
-            <div style="font-size: 12px; font-weight: bold; margin-bottom: 2px;">${Math.round(weather.temp)}°</div>
-            <div style="font-size: 9px; color: #fff; text-align: center; line-height: 1.1; opacity: 0.9;">
+            <div style="font-size: 12px; font-weight: bold; margin-bottom: 2px; color: ${timeTextColor}; text-shadow: ${timeTextShadow};">${displayTemp}°${temperatureUnit}</div>
+            <div style="font-size: 9px; color: ${timeTextColor}; text-align: center; line-height: 1.1; opacity: 0.95; text-shadow: ${timeTextShadow};">
               ${item.arrivalTime ? formatArrivalTime(item.arrivalTime) : 'est'}
             </div>
           `;
@@ -408,17 +464,31 @@ const MapViewWeb = ({ currentLocation, routeCoordinates, weatherData }) => {
         }
       });
 
-      console.log('Successfully added', markersRef.current.length, 'weather markers');
     } catch (error) {
       console.error('Error adding weather markers:', error);
     }
-  }, [weatherData, mapboxgl]);
+  }, [weatherData, mapboxgl, temperatureUnit, onMarkerClick]);
 
   if (typeof window === 'undefined') {
     return (
       <View style={styles.container}>
         <View style={styles.placeholder}>
           <Text>Not running in browser</Text>
+        </View>
+      </View>
+    );
+  }
+
+  if (mapError) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.placeholder}>
+          <Text style={{ color: '#dc3545', textAlign: 'center', padding: 20 }}>
+            {mapError}
+          </Text>
+          <Text style={{ color: '#666', fontSize: 12, marginTop: 10, textAlign: 'center', padding: 10 }}>
+            Make sure EXPO_PUBLIC_MAPBOX_TOKEN is set in your .env file and restart the dev server.
+          </Text>
         </View>
       </View>
     );
@@ -443,7 +513,7 @@ const MapViewWeb = ({ currentLocation, routeCoordinates, weatherData }) => {
 
 function getWeatherColor(weather) {
   const condition = weather.condition.toLowerCase();
-  
+
   if (condition.includes('rain') || condition.includes('drizzle')) {
     return 'rgba(59, 130, 246, 0.8)';
   } else if (condition.includes('snow')) {
@@ -461,7 +531,7 @@ function getWeatherColor(weather) {
 
 function getWeatherIcon(condition) {
   const cond = condition.toLowerCase();
-  
+
   if (cond.includes('rain') || cond.includes('drizzle')) {
     return '🌧️';
   } else if (cond.includes('snow')) {

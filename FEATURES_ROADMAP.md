@@ -41,11 +41,21 @@
 - **Priority**: Low
 - **Complexity**: Low
 
+#### 4. **Links to Local Weather Cameras**
+- [ ] Add links to local weather cameras along route
+- [ ] Display camera links in weather detail modal
+- [ ] Show cameras near each weather point
+- [ ] Integration with traffic/weather camera APIs
+- [ ] Visual indicators for camera locations on map
+- **Priority**: Medium
+- **Complexity**: Medium
+- **API**: State DOT APIs, Weather Underground, or similar
+
 ---
 
 ### Route Planning & Navigation
 
-#### 4. **Desired Departure Time**
+#### 5. **Desired Departure Time**
 - [ ] Add departure time selector (date + time picker)
 - [ ] Default to "Now" but allow future dates/times
 - [ ] Show weather forecast for selected departure time
@@ -55,7 +65,7 @@
 - **Complexity**: Medium
 - **Notes**: Extends current slider functionality
 
-#### 5. **Click on Map to Set Location**
+#### 6. **Click on Map to Set Location**
 - [ ] Click anywhere on map to set departure point
 - [ ] Click anywhere on map to set destination
 - [ ] Visual marker when clicking
@@ -64,7 +74,7 @@
 - **Priority**: High
 - **Complexity**: Medium
 
-#### 6. **Multiple Waypoints**
+#### 7. **Multiple Waypoints**
 - [ ] Add intermediate stops along route
 - [ ] Reorder waypoints
 - [ ] Weather at each waypoint
@@ -72,7 +82,7 @@
 - **Priority**: Medium
 - **Complexity**: High
 
-#### 7. **Route Alternatives**
+#### 8. **Route Alternatives**
 - [ ] Show multiple route options
 - [ ] Compare weather along different routes
 - [ ] Fastest vs. shortest route
@@ -80,7 +90,7 @@
 - **Priority**: Medium
 - **Complexity**: Medium
 
-#### 8. **Route Optimization**
+#### 9. **Route Optimization**
 - [ ] Suggest best departure time based on weather
 - [ ] Avoid bad weather windows
 - [ ] Optimal route considering weather conditions
@@ -91,7 +101,7 @@
 
 ### User Experience & Interface
 
-#### 9. **Viewable Weather/Time List**
+#### 10. **Viewable Weather/Time List**
 - [ ] Toggle between map view and list view
 - [ ] Table/list showing all weather points
 - [ ] Sortable columns (time, temp, condition, etc.)
@@ -100,7 +110,7 @@
 - **Priority**: Medium
 - **Complexity**: Medium
 
-#### 10. **Error Handling for Misspelled Cities**
+#### 11. **Error Handling for Misspelled Cities**
 - [ ] "Did you mean..." suggestions for typos
 - [ ] Fuzzy search/autocomplete
 - [ ] Common misspellings database
@@ -109,7 +119,7 @@
 - **Priority**: High
 - **Complexity**: Low-Medium
 
-#### 11. **Recent Searches**
+#### 12. **Recent Searches**
 - [ ] Save recent route searches
 - [ ] Quick access to previous routes
 - [ ] Favorite routes
@@ -117,7 +127,7 @@
 - **Priority**: Medium
 - **Complexity**: Low
 
-#### 12. **Route Sharing & Export**
+#### 13. **Route Sharing & Export**
 - [ ] Share route via link (with weather snapshot)
 - [ ] Send to friend via email/SMS
 - [ ] Export route as PDF
@@ -127,7 +137,7 @@
 - **Priority**: High
 - **Complexity**: Medium
 
-#### 13. **Mobile App**
+#### 14. **Mobile App**
 - [ ] Native iOS app
 - [ ] Native Android app
 - [ ] Push notifications for weather alerts
@@ -139,7 +149,7 @@
 
 ### User Accounts & Personalization
 
-#### 14. **User Accounts & Login**
+#### 15. **User Accounts & Login**
 - [ ] User registration/login
 - [ ] Email/password authentication
 - [ ] Social login (Google, Facebook)
@@ -150,7 +160,7 @@
 - **Priority**: Medium
 - **Complexity**: High
 
-#### 15. **User Settings**
+#### 16. **User Settings**
 - [ ] Preferred units (metric/imperial)
 - [ ] Default departure location
 - [ ] Weather alert preferences
@@ -159,7 +169,7 @@
 - **Priority**: Low
 - **Complexity**: Low
 
-#### 16. **Route History**
+#### 17. **Route History**
 - [ ] View past routes
 - [ ] Compare weather predictions vs. actual
 - [ ] Route analytics
@@ -170,7 +180,7 @@
 
 ### Advanced Features
 
-#### 17. **Real-Time Traffic Integration**
+#### 18. **Real-Time Traffic Integration**
 - [ ] Traffic conditions along route
 - [ ] Adjust arrival time based on traffic
 - [ ] Weather + traffic combined view
@@ -178,14 +188,14 @@
 - **Complexity**: High
 - **API**: Google Maps Traffic API or similar
 
-#### 18. **Weather Impact on Travel Time**
+#### 19. **Weather Impact on Travel Time**
 - [ ] Calculate time delays due to weather
 - [ ] Show weather-related slowdowns
 - [ ] Adjust ETA based on conditions
 - **Priority**: Medium
 - **Complexity**: High
 
-#### 19. **Multi-Day Trip Planning**
+#### 20. **Multi-Day Trip Planning**
 - [ ] Plan trips spanning multiple days
 - [ ] Weather forecast for each day
 - [ ] Overnight stops
@@ -193,7 +203,7 @@
 - **Priority**: Low
 - **Complexity**: High
 
-#### 20. **Weather Notifications**
+#### 21. **Weather Notifications**
 - [ ] Email alerts for route weather changes
 - [ ] SMS notifications
 - [ ] Push notifications (if mobile app)
@@ -201,14 +211,14 @@
 - **Priority**: Medium
 - **Complexity**: Medium
 
-#### 21. **Route Comparison**
+#### 22. **Route Comparison**
 - [ ] Compare weather on different routes
 - [ ] Side-by-side weather comparison
 - [ ] Best route recommendation
 - **Priority**: Low
 - **Complexity**: Medium
 
-#### 22. **Weather Trends**
+#### 23. **Weather Trends**
 - [ ] Historical weather data
 - [ ] Weather patterns over time
 - [ ] Seasonal trends
@@ -219,7 +229,7 @@
 
 ### Technical Improvements
 
-#### 23. **Performance Optimization**
+#### 24. **Performance Optimization**
 - [ ] Lazy loading of map tiles
 - [ ] Optimize weather API calls
 - [ ] Better caching strategy
@@ -227,14 +237,14 @@
 - **Priority**: Medium
 - **Complexity**: Medium
 
-#### 24. **Offline Support**
+#### 25. **Offline Support**
 - [ ] Cache routes offline
 - [ ] Offline map viewing
 - [ ] Download weather data
 - **Priority**: Low
 - **Complexity**: High
 
-#### 25. **Accessibility**
+#### 26. **Accessibility**
 - [ ] Screen reader support
 - [ ] Keyboard navigation
 - [ ] High contrast mode
@@ -242,7 +252,7 @@
 - **Priority**: Medium
 - **Complexity**: Medium
 
-#### 26. **Internationalization**
+#### 27. **Internationalization**
 - [ ] Multi-language support
 - [ ] Localized date/time formats
 - [ ] Regional weather units

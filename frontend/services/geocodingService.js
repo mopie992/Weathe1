@@ -70,3 +70,57 @@ export async function geocode(query) {
   }
 }
 
+/**
+ * Reverse geocode coordinates to get place name using Mapbox Geocoding API
+ * @param {number} latitude - Latitude coordinate
+ * @param {number} longitude - Longitude coordinate
+ * @returns {Promise<string>} Place name (city, state, country)
+ */
+export async function reverseGeocode(latitude, longitude) {
+  try {
+    const token = getMapboxToken();
+    if (!token) {
+      throw new Error('Mapbox token not configured');
+    }
+
+    const response = await axios.get(`https://api.mapbox.com/geocoding/v5/mapbox.places/${longitude},${latitude}.json`, {
+      params: {
+        access_token: token,
+        limit: 1,
+        types: 'place,locality,neighborhood' // Prioritize city/place names
+      },
+      timeout: 10000
+    });
+
+    if (!response.data || !response.data.features || response.data.features.length === 0) {
+      // Fallback: try without type restriction
+      const fallbackResponse = await axios.get(`https://api.mapbox.com/geocoding/v5/mapbox.places/${longitude},${latitude}.json`, {
+        params: {
+          access_token: token,
+          limit: 1
+        },
+        timeout: 10000
+      });
+
+      if (fallbackResponse.data && fallbackResponse.data.features && fallbackResponse.data.features.length > 0) {
+        const feature = fallbackResponse.data.features[0];
+        // Extract city name from place_name or context
+        const placeName = feature.place_name || feature.text || `${latitude.toFixed(2)}, ${longitude.toFixed(2)}`;
+        return placeName;
+      }
+
+      return `Approximate: ${latitude.toFixed(2)}, ${longitude.toFixed(2)}`;
+    }
+
+    const feature = response.data.features[0];
+    // Extract city name - prefer place_name, fallback to text
+    const placeName = feature.place_name || feature.text || `${latitude.toFixed(2)}, ${longitude.toFixed(2)}`;
+
+    return placeName;
+  } catch (error) {
+    console.error('Reverse geocoding error:', error);
+    // Return approximate coordinates if reverse geocoding fails
+    return `Approximate: ${latitude.toFixed(2)}, ${longitude.toFixed(2)}`;
+  }
+}
+
