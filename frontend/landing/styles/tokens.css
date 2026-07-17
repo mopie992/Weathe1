@@ -1,0 +1,46 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap');
+
+:root {
+  --rw-navy: #102A43;
+  --rw-navy-muted: #486581;
+  --rw-primary: #2774AE;
+  --rw-primary-hover: #1f5f8f;
+  --rw-light-blue: #DCEFFE;
+  --rw-green: #2E9D68;
+  --rw-amber: #F0A329;
+  --rw-coral: #E05252;
+  --rw-bg: #F7F9FC;
+  --rw-white: #FFFFFF;
+  --rw-border: #E4EBF2;
+  --rw-border-strong: #D0DBE7;
+
+  --rw-radius-sm: 10px;
+  --rw-radius: 16px;
+  --rw-radius-lg: 18px;
+
+  --rw-shadow-sm: 0 1px 2px rgba(16, 42, 67, 0.04);
+  --rw-shadow: 0 4px 16px rgba(16, 42, 67, 0.06);
+  --rw-shadow-md: 0 8px 24px rgba(16, 42, 67, 0.08);
+
+  --rw-space-1: 4px;
+  --rw-space-2: 8px;
+  --rw-space-3: 12px;
+  --rw-space-4: 16px;
+  --rw-space-5: 24px;
+  --rw-space-6: 32px;
+  --rw-space-7: 48px;
+  --rw-space-8: 64px;
+
+  --rw-font: 'DM Sans', system-ui, sans-serif;
+  --rw-text-xs: clamp(0.75rem, 0.7rem + 0.2vw, 0.8125rem);
+  --rw-text-sm: clamp(0.875rem, 0.82rem + 0.25vw, 0.9375rem);
+  --rw-text-base: clamp(1rem, 0.95rem + 0.25vw, 1.0625rem);
+  --rw-text-lg: clamp(1.125rem, 1.05rem + 0.35vw, 1.25rem);
+  --rw-text-xl: clamp(1.375rem, 1.15rem + 0.9vw, 1.75rem);
+  --rw-text-2xl: clamp(1.75rem, 1.35rem + 1.6vw, 2.75rem);
+
+  --rw-touch: 44px;
+  --rw-max: 1120px;
+  --rw-max-wide: 1280px;
+  --rw-header-h: 72px;
+}
