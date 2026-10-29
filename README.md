@@ -1,194 +1,101 @@
 # RoadWeather
-### GPS Navigation with Real-Time & Forecasted Weather Overlays
 
-RoadWeather is a cross-platform mobile application that enhances traditional GPS navigation by overlaying **live and future weather conditions** along a selected driving route. A built-in **timeline slider** allows travelers to preview expected weather changes—rain, snow, wind, temperature—at different points in their journey.
+**Live app: [roadweather.app](https://roadweather.app)**
 
-This project is designed for incremental build-out using **Cursor**, **ChatGPT**, and **Claude**, with a modular architecture enabling easy extension.
+Weather forecasts for the whole drive, not just the start and the end. Enter a destination and RoadWeather builds the route, then shows the weather you'll hit at each point along it. A timeline slider lets you scrub forward through the trip to see what conditions will be like when you actually get there.
 
----
+## What it does
 
-## 🚀 Features
+- Builds a driving route from your current location (or any address) to a destination
+- Places weather markers along the route at 30-minute intervals
+- Timeline slider previews conditions (rain, snow, wind, temperature) at each point, at the time you'd reach it
+- Shows departure and arrival times, with distance in miles and kilometers
+- Address and place-name search through geocoding
+- Tap a marker for a detailed weather view
 
-### Core (MVP)
-- **GPS Routing**
-  - Fetch driving routes using Mapbox Directions API.
-  - Auto-detect user’s current position.
+## How it works
 
-- **Weather Overlay**
-  - Real-time and forecasted weather plotted along the route.
-  - Visualization includes precipitation intensity, storms, fog, temperature, and wind.
+1. The user enters a destination.
+2. The backend requests a route from the Mapbox Directions API and decodes the polyline into coordinates.
+3. Coordinates are sampled along the route by travel time.
+4. For each sample point, the backend pulls the OpenWeather forecast for the time the driver would be there.
+5. The merged route-plus-weather payload goes to the frontend, which draws the route and overlay. The slider re-renders the overlay as it moves.
 
-- **Timeline Forecast Slider**
-  - Drag a slider to see route conditions at future times (e.g., +1h, +3h, +6h, +12h).
+Weather responses are cached (Redis, optional with a graceful fallback when it isn't available) to keep API usage down.
 
-- **Modular API Services**
-  - Weather providers (OpenWeather, Tomorrow.io, NOAA) can be swapped without breaking app logic.
+## Tech stack
 
----
+| Layer | Tech |
+|-------|------|
+| Frontend | React Native via Expo, exported as a web build; Mapbox GL JS; Axios |
+| Backend | Node.js, Express, `@mapbox/polyline`, optional Redis |
+| Routing and maps | Mapbox Directions, Geocoding, and GL JS |
+| Weather | OpenWeather current and forecast APIs |
+| Hosting | Static frontend on DreamHost; Node API on Railway |
 
-## 🧭 Future Enhancements
-- AI-assisted route suggestions to avoid storm systems.
-- “What-if I leave later?” departure simulation.
-- Severe weather push notifications.
-- Offline navigation + cached weather.
-- Shareable route snapshots.
-- Expanded map layers and animations.
-
----
-
-## 🧰 Tech Stack
-
-### Frontend
-- **React Native** (Expo or bare workflow)
-- **Mapbox SDK**
-- **D3.js / deck.gl** for weather visualization overlays
-- **Reanimated** for timeline slider animations
-
-### Backend
-- **Node.js + Express**
-- **OpenWeather One Call API**
-- **Mapbox Directions API**
-- Polyline decoding + coordinate sampling utilities
-- Optional **Redis caching**
-
----
-
-## 📡 API Endpoints
-
-### `GET /directions`
-Fetches driving route and decodes polyline into coordinate points.
-
-**Example response:**
-```json
-{
-  "coordinates": [
-    { "lat": 40.123, "lon": -82.911 },
-    { "lat": 40.145, "lon": -82.887 }
-  ]
-}
-```
-
-### `GET /weather`
-Returns forecasted weather mapped to the coordinates along the route.
-
-**Example response:**
-```json
-[
-  {
-    "lat": 40.123,
-    "lon": -82.911,
-    "timestamp": 1703455200,
-    "weather": {
-      "temp": 3.2,
-      "precip": "snow",
-      "wind": 8.4
-    }
-  }
-]
-```
-
----
-
-## 🔄 Data Flow Overview
-
-1. User enters destination.
-2. App retrieves route polyline via Mapbox Directions API.
-3. Backend decodes polyline and samples coordinates (e.g., every 5–10 km).
-4. For each coordinate:
-   - Query weather forecast API.
-5. Backend merges results → sends structured weather + route data to frontend.
-6. User scrubs the timeline slider; overlay updates in real time.
-
----
-
-## 📁 Project Structure
+## Project structure
 
 ```
-roadweather/
-│
-├── frontend/
-│   ├── components/
-│   │   ├── MapView.js
-│   │   ├── WeatherOverlay.js
-│   │   ├── TimelineSlider.js
-│   │   └── AlertsPanel.js
-│   ├── services/
-│   │   ├── directionsService.js
-│   │   └── weatherService.js
-│   └── App.js
-│
-└── backend/
-    ├── server.js
-    ├── routes/
-    │   ├── directions.js
-    │   └── weather.js
-    ├── utils/
-    │   ├── polylineDecoder.js
-    │   └── cache.js
-    └── package.json
+frontend/     Expo app and web build (components/, services/, landing/)
+backend/      Express API
+  server.js
+  routes/     directions.js, weather.js
+  utils/      polylineDecoder.js, cache.js
+scripts/      Deploy tooling (SFTP swap deploy)
+deploy.ps1    One-command build and upload
 ```
 
----
+## API
 
-## ⚙️ Installation & Setup
+| Endpoint | Purpose |
+|----------|---------|
+| `GET /api/health` | Health check |
+| `GET /api/directions` | Driving route between two points, polyline decoded to coordinates |
+| `GET /api/weather` | Forecast weather for coordinates along the route |
 
-### 1. Clone Repository
+## Running it locally
+
+You'll need a [Mapbox](https://account.mapbox.com/) token and an [OpenWeather](https://openweathermap.org/api) API key.
+
 ```bash
-git clone https://github.com/yourusername/roadweather.git
-cd roadweather
-```
-
-### 2. Backend Setup
-```bash
-cd backend
+git clone https://github.com/mopie992/Weathe1.git
+cd Weathe1/backend
 npm install
 ```
 
-Create `.env`:
+Create `backend/.env`:
+
 ```
 MAPBOX_TOKEN=your_mapbox_token
 OPENWEATHER_KEY=your_openweather_key
+PORT=3000
 ```
 
-Start server:
 ```bash
 npm start
 ```
 
-### 3. Frontend Setup
+In a second terminal:
+
 ```bash
-cd ../frontend
+cd Weathe1/frontend
 npm install
 npm start
 ```
 
----
+See `LOCAL_SETUP.md` and `QUICKSTART.md` for more detail, and `DEPLOY.md` for deployment.
 
-## 🧪 Development Notes
-- Timeline slider should interpolate weather transitions for smooth animations.
-- Sampling interval along route (recommended): **5–10 km**.
-- Cache weather responses aggressively to reduce API call volume.
-- Mapbox GL supports custom layers—ideal for overlay shading, icons, or animated radar-like visuals.
+## Roadmap
 
----
+Planned, not yet built (see `FEATURES_ROADMAP.md`):
 
-## 🤝 Contributing
-Pull requests are welcome.  
-Please open issues for bug reports or feature suggestions.
+- Weather radar overlay with an on/off toggle
+- Severe weather alerts along the route
+- Weather conditions legend
+- Links to local weather cameras along the route
+- "What if I leave later?" departure comparison
+- Offline navigation with cached weather
 
----
+## Notes
 
-## 📄 License
-MIT License (or update as needed)
-
----
-
-## ⚡ Cursor Quick-Start Prompt
-
-```
-Scaffold the RoadWeather project using the architecture described in README.md.
-Create React Native components for MapView, WeatherOverlay, and TimelineSlider.
-Set up a Node.js backend with /directions and /weather endpoints.
-Integrate Mapbox Directions API and OpenWeather API.
-Build Phase 1 MVP with routing, weather retrieval, and basic overlay rendering.
-```
+Built by Karm Parker. Developed with AI coding assistants (Cursor and Claude) for scaffolding and iteration; I direct the product, review the output in the browser, and handle deployment.
